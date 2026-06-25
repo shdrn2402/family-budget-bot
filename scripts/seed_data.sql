@@ -64,11 +64,3 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Reset sequence
 SELECT setval('budget.categories_id_seq', (SELECT max(id) FROM budget.categories));
-
--- Seed default family
-INSERT INTO budget.families (id, name) VALUES
-(1, 'Family')
-ON CONFLICT (id) DO NOTHING;
-
--- Reset sequence for families
-SELECT setval('budget.families_id_seq', (SELECT max(id) FROM budget.families));

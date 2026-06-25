@@ -34,15 +34,8 @@ CREATE SCHEMA IF NOT EXISTS budget AUTHORIZATION ${DB_USER};
 SET search_path TO budget;
 
 -- 5. Create Tables
-CREATE TABLE IF NOT EXISTS families (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
 CREATE TABLE IF NOT EXISTS users (
     id BIGINT PRIMARY KEY, -- Telegram ID
-    family_id INT NOT NULL REFERENCES families(id),
     name VARCHAR(255),
     is_admin BOOLEAN DEFAULT FALSE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -50,7 +43,6 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS accounts (
     id SERIAL PRIMARY KEY,
-    family_id INT NOT NULL REFERENCES families(id),
     owner_id BIGINT REFERENCES users(id), -- Nullable for family accounts
     name JSONB NOT NULL,
     type VARCHAR(50) NOT NULL -- e.g., 'cash', 'card', 'transit'
