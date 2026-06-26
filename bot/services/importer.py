@@ -59,7 +59,7 @@ def parse_leumi(file_path):
             'amount': amount,
             'description': desc,
             'external_id': f"leumi_{row.get('Reference', 'no_ref')}_{date_obj.strftime('%Y%m%d')}_{abs(amount)}",
-            'account_id': 1, # Debit
+            'account_id': 3, # Family Debit
             'source_type': 'import'
         })
         
@@ -151,11 +151,11 @@ def import_excel_file(file_path, hint=None):
         
         # Mapping card suffixes to account IDs
         mapping = {
-            '2222': 2, # Bob Credit
-            '1111': 4  # Wife Credit
+            '2222': 1, # Bob Credit
+            '1111': 2  # Alice Credit
         }
         
-        target_account_id = mapping.get(prefix, 2) # Default to Bob Credit if unknown
+        target_account_id = mapping.get(prefix, 1) # Default to Bob Credit if unknown
         return parse_isracard(file_path, account_id=target_account_id)
         
     logger.warning(f"Unknown file format: {filename} (hint: {hint})")
