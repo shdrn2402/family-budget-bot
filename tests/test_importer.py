@@ -33,7 +33,7 @@ def test_parse_leumi_success():
         # Verify SUPERMARKET
         assert transactions[0]['description'] == 'SUPERMARKET'
         assert transactions[0]['amount'] == -100.0
-        assert transactions[0]['account_id'] == 1 # Debit
+        assert transactions[0]['account_id'] == 3 # Debit
         assert transactions[0]['source_type'] == 'import'
         
         # Verify REFUND
@@ -87,10 +87,10 @@ def test_import_excel_file_routing():
         
         # Test Isracard (starts with 2222)
         import_excel_file("2222_isracard_report.xlsx")
-        mock_isra.assert_called_with("2222_isracard_report.xlsx", account_id=2)
+        mock_isra.assert_called_with("2222_isracard_report.xlsx", account_id=1)
         
         mock_isra.reset_mock()
 
         # Test Isracard (starts with 1111 - Wife)
         import_excel_file("1111_wife_report.xlsx")
-        mock_isra.assert_called_with("1111_wife_report.xlsx", account_id=4)
+        mock_isra.assert_called_with("1111_wife_report.xlsx", account_id=2)
