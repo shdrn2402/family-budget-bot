@@ -16,48 +16,51 @@ INSERT INTO budget.categories (id, name, parent_id) VALUES
 (11, '{"en": "Salary", "ru": "Зарплата"}', 1),
 (12, '{"en": "Refunds & Cashback", "ru": "Возвраты и кэшбэк"}', 1),
 (13, '{"en": "Other Income", "ru": "Прочие доходы"}', 1),
+(14, '{"en": "Allowances & Benefits", "ru": "Пособия и выплаты"}', 1),
 
 -- Transfer (2)
-(14, '{"en": "Internal Transfer", "ru": "Перевод между своими счетами"}', 2),
-(15, '{"en": "Private Transfers & Payments", "ru": "Переводы и частные платежи"}', 2),
+(15, '{"en": "Internal Transfer", "ru": "Перевод между своими счетами"}', 2),
+(16, '{"en": "Private Transfers & Payments", "ru": "Переводы и частные платежи"}', 2),
 
 -- Food (3)
-(16, '{"en": "Junk Food & Sweets", "ru": "Вредная еда и сладости"}', 3),
-(17, '{"en": "Supermarkets & Groceries", "ru": "Продукты и супермаркеты"}', 3),
-(18, '{"en": "Restaurants & Delivery", "ru": "Рестораны и доставка"}', 3),
+(17, '{"en": "Junk Food & Sweets", "ru": "Вредная еда и сладости"}', 3),
+(18, '{"en": "Supermarkets & Groceries", "ru": "Продукты и супермаркеты"}', 3),
+(19, '{"en": "Restaurants & Delivery", "ru": "Рестораны и доставка"}', 3),
 
 -- Housing (4)
-(19, '{"en": "Internet & Mobile", "ru": "Связь и интернет"}', 4),
-(20, '{"en": "Rent, Arnona & Vaad Bayit", "ru": "Аренда, Арнона и Ваад байт"}', 4),
-(21, '{"en": "Utilities (Metered)", "ru": "Свет, Вода, Газ"}', 4),
-(22, '{"en": "Home Maintenance", "ru": "Ремонт и уют"}', 4),
-(23, '{"en": "Household & Cleaning", "ru": "Хозтовары и бытовая химия"}', 4),
+(20, '{"en": "Internet & Mobile", "ru": "Связь и интернет"}', 4),
+(21, '{"en": "Rent, Arnona & Vaad Bayit", "ru": "Аренда, Арнона и Ваад байт"}', 4),
+(22, '{"en": "Utilities (Metered)", "ru": "Свет, Вода, Газ"}', 4),
+(23, '{"en": "Home Maintenance", "ru": "Ремонт и уют"}', 4),
+(24, '{"en": "Household & Cleaning", "ru": "Хозтовары и бытовая химия"}', 4),
+(25, '{"en": "Electronics & Appliances", "ru": "Техника и электроника"}', 4),
 
 -- Transport (5)
-(24, '{"en": "Car & Fuel", "ru": "Авто и бензин"}', 5),
-(25, '{"en": "Public Transport & Taxi", "ru": "Общественный транспорт и такси"}', 5),
-(26, '{"en": "Car Maintenance & Repairs", "ru": "Сервис и ремонт авто"}', 5),
-(27, '{"en": "Car Insurance & Licensing", "ru": "Страховка и налоги на авто"}', 5),
+(26, '{"en": "Car & Fuel", "ru": "Авто и бензин"}', 5),
+(27, '{"en": "Public Transport & Taxi", "ru": "Общественный транспорт и такси"}', 5),
+(28, '{"en": "Car Maintenance & Repairs", "ru": "Сервис и ремонт авто"}', 5),
+(29, '{"en": "Car Insurance & Licensing", "ru": "Страховка и налоги на авто"}', 5),
 
 -- Kids (6)
-(28, '{"en": "Daycare & Education", "ru": "Садик и учеба"}', 6),
-(29, '{"en": "Toys & Clothes", "ru": "Игрушки и одежда"}', 6),
+(30, '{"en": "Daycare & Education", "ru": "Садик и учеба"}', 6),
+(31, '{"en": "Toys & Clothes", "ru": "Игрушки и одежда"}', 6),
 
 -- Lifestyle (7)
-(30, '{"en": "Health & Beauty", "ru": "Здоровье и красота"}', 7),
-(31, '{"en": "Entertainment", "ru": "Развлечения"}', 7),
-(32, '{"en": "Clothing", "ru": "Одежда и обувь"}', 7),
-(33, '{"en": "Subscriptions", "ru": "Подписки"}', 7),
-(34, '{"en": "Travel & Vacation", "ru": "Путешествия и отдых"}', 7),
-(35, '{"en": "Hobbies & Sport", "ru": "Хобби и спорт"}', 7),
+(32, '{"en": "Health & Beauty", "ru": "Здоровье и красота"}', 7),
+(33, '{"en": "Entertainment", "ru": "Развлечения"}', 7),
+(34, '{"en": "Clothing", "ru": "Одежда и обувь"}', 7),
+(35, '{"en": "Subscriptions", "ru": "Подписки"}', 7),
+(36, '{"en": "Travel & Vacation", "ru": "Путешествия и отдых"}', 7),
+(37, '{"en": "Hobbies & Sport", "ru": "Хобби и спорт"}', 7),
+(38, '{"en": "Marketplaces & Online Shopping", "ru": "Маркетплейсы и онлайн-магазины"}', 7),
+(39, '{"en": "Education & Courses", "ru": "Обучение и курсы"}', 7),
 
 -- Financial (8)
-(36, '{"en": "Loans & Debt", "ru": "Кредиты и долги"}', 8),
-(37, '{"en": "Savings & Investments", "ru": "Сбережения и инвестиции"}', 8),
-(38, '{"en": "Fees & Taxes", "ru": "Налоги и комиссии"}', 8),
-(39, '{"en": "Cash Withdrawal", "ru": "Снятие наличных"}', 8),
-(40, '{"en": "Unaccounted Expenses", "ru": "Неучтенные расходы"}', 8)
-
+(40, '{"en": "Loans & Debt", "ru": "Кредиты и долги"}', 8),
+(41, '{"en": "Savings & Investments", "ru": "Сбережения и инвестиции"}', 8),
+(42, '{"en": "Fees & Taxes", "ru": "Налоги и комиссии"}', 8),
+(43, '{"en": "Cash Withdrawal", "ru": "Снятие наличных"}', 8),
+(44, '{"en": "Unaccounted Expenses", "ru": "Неучтенные расходы"}', 8)
 ON CONFLICT (id) DO UPDATE SET 
     name = EXCLUDED.name,
     parent_id = EXCLUDED.parent_id;
