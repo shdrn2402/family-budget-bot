@@ -35,7 +35,7 @@ USER budget_user
 COPY --chown=budget_user:budget_group "pyproject.toml" "uv.lock" ".python-version" ./
 
 # Create virtual environment and install dependencies
-RUN uv sync --frozen --no-dev --no-cache
+RUN uv sync --frozen --no-install-project --no-dev --no-cache
 
 # Copy application files
 COPY --chown=budget_user:budget_group bot/ ./bot/

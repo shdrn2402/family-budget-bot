@@ -17,7 +17,6 @@ venv.bak/
 
 # === Secrets & Local Config ===
 .env
-compose.yaml
 
 # === uv ===
 # uv.lock is intentionally tracked (reproducible builds)
@@ -25,6 +24,7 @@ compose.yaml
 # === Project: Temporary Files ===
 logs/
 backups/
+budget_db_backup/
 temp_imports/
 bot/temp_plots/
 
