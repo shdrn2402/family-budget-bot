@@ -75,7 +75,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "compose.yml"
+          source: "compose.yaml"
           target: "~/my_family_budget"
 
       - name: Execute remote ssh commands
