@@ -40,6 +40,9 @@ jobs:
     name: Build and Push Docker Image
     needs: test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -63,6 +66,18 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Copy docker-compose via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "docker-compose.yml"
+          target: "~/my_family_budget"
+
       - name: Execute remote ssh commands
         uses: appleboy/ssh-action@v1.0.3
         env:
@@ -81,7 +96,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           envs: TELEGRAM_TOKEN,ALLOWED_USER_IDS,DB_NAME,DB_USER,DB_PASSWORD,PGADMIN_DEFAULT_EMAIL,PGADMIN_DEFAULT_PASSWORD,GEMINI_API_KEY,BOT_TIMEZONE
           script: |
-            cd my_family_budget
+            cd ~/my_family_budget
             
             # Generate .env from secrets
             cat <<EOF > .env
@@ -98,24 +113,8 @@ jobs:
             
             mkdir -p backups
             
-            # Dump database before pulling new changes (ignore if container is missing)
-            docker compose exec -T pgdatabase pg_dump -U $DB_USER -F c $DB_NAME > backups/backup_before_deploy_$(date +%Y%m%d_%H%M%S).dump || echo "Backup skipped (container might not be running)"
-            
-            # Authenticate with GHCR
-            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-            
-            # Pull latest repository changes (initialize if first time)
-            if [ ! -d ".git" ]; then
-              git init
-              git remote add origin https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-              git fetch
-              git reset --hard origin/main
-            else
-              git pull origin main
-            fi
-            
-            # Setup compose file since actual compose.yaml is gitignored
-            cp compose.example.yaml compose.yaml
+            # Dump database before pulling new changes
+            docker compose exec -T pgdatabase pg_dump -U $DB_USER -F c $DB_NAME > backups/backup_before_deploy_$(date +%Y%m%d_%H%M%S).dump || echo "Backup skipped"
             
             # Pull new bot image
             docker compose pull budget_bot

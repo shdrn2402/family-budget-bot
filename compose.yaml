@@ -1,6 +1,7 @@
 services:
   pgdatabase:
     image: postgres:18
+    container_name: budget-database
     environment:
       - TZ=Asia/Jerusalem
       - POSTGRES_DB=${DB_NAME}
@@ -11,10 +12,11 @@ services:
     volumes:
       - "budget_postgres_data:/var/lib/postgresql"
     restart: unless-stopped
-    
+
   budget_bot:
     image: ghcr.io/shdrn2402/my_family_budget/budget_bot:latest
     build: .
+    container_name: budget-bot
     environment:
       - TZ=Asia/Jerusalem
       - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
@@ -27,7 +29,7 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
     volumes:
       - "telegram_data:/logs"
-      - "db_backups:/app/backups:rw"
+      - "db_backups:/app/backups"
     depends_on:
       - pgdatabase
     restart: unless-stopped
