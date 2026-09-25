@@ -1,12 +1,13 @@
-# 💰 My Family Budget Bot
+# 💰 Family Budget Bot
 
-[![CI/CD Pipeline](https://github.com/shdrn2402/my_family_budget/actions/workflows/deploy.yaml/badge.svg)](https://github.com/shdrn2402/my_family_budget/actions/workflows/deploy.yaml)
+[![CI/CD Pipeline](https://github.com/shdrn2402/family-budget-bot/actions/workflows/deploy.yaml/badge.svg)](https://github.com/shdrn2402/family-budget-bot/actions/workflows/deploy.yaml)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![Package Manager: uv](https://img.shields.io/badge/package--manager-uv-brightgreen)](https://docs.astral.sh/uv/)
 [![Database: PostgreSQL 18](https://img.shields.io/badge/database-postgresql--18-blue)](https://www.postgresql.org/)
 [![AI: Gemini 1.5 Flash](https://img.shields.io/badge/AI-Gemini%201.5%20Flash-orange)](https://ai.google.dev/)
+[![Security: Hardened](https://img.shields.io/badge/DB_Access-Direct%20%2F%20SSH%20Tunnel-informational)](#-tech-stack--port-mapping)
 
-**My Family Budget** is a private, bilingual (English/Russian) Telegram bot designed for family finance tracking. It combines LLM-powered natural language processing, voice transcription, and structured database synchronization.
+**Family Budget Bot** is a private, bilingual (English/Russian) Telegram bot designed for family finance tracking. It combines LLM-powered natural language processing, voice transcription, and structured database synchronization.
 
 ---
 
@@ -17,7 +18,7 @@ graph TD
     TelegramUser[Telegram User] <--> |Commands / Text / Voice / Files| Bot[Telegram Budget Bot]
     Bot <--> |Gemini API| Gemini[Google Gemini 1.5 Flash]
     Bot <--> |psycopg3 / Port 5432| DB[(PostgreSQL 18)]
-    PGAdmin[PGAdmin 4 / Port 8085] --> |Port 5432| DB
+    DBClient[Local Client: DBeaver] -.-> |Direct / SSH Tunnel| DB
     DB -.-> |Automatic db_dump| Backup[./backups/]
     DBTrigger[PostgreSQL Trigger] -.-> |Sync Alias Updates| DB
 ```
@@ -38,12 +39,14 @@ graph TD
 
 ## 🛠 Tech Stack & Port Mapping
 
+```markdown
 | Service | Technology | Port (Host:Container) | Description |
 | :--- | :--- | :--- | :--- |
 | **Bot Ingestion** | Python 3.12 + `uv` | *N/A (Stateless)* | Telegram webhook/polling daemon |
 | **Database** | PostgreSQL 18 | `5433:5432` | Primary transactional storage |
-| **Database Admin** | PGAdmin 4 | `8085:80` | Web interface for database management |
+| **DB Administration** | DBeaver / CLI | *Via SSH Tunnel / Host Port* | Direct administration without exposed web GUIs |
 | **LLM Engine** | Gemini 1.5 Flash | *API* | Voice transcription and entity extraction |
+```
 
 ---
 
@@ -77,8 +80,6 @@ DB_PORT=5432
 DB_NAME="your_db_name"
 DB_USER="your_db_user"
 DB_PASSWORD="your_db_password"
-PGADMIN_DEFAULT_EMAIL="your_pgadmin_email"
-PGADMIN_DEFAULT_PASSWORD="your_pgadmin_password"
 GEMINI_API_KEY="your_gemini_api_key"
 ```
 
