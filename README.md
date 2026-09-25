@@ -39,14 +39,12 @@ graph TD
 
 ## 🛠 Tech Stack & Port Mapping
 
-```markdown
 | Service | Technology | Port (Host:Container) | Description |
 | :--- | :--- | :--- | :--- |
 | **Bot Ingestion** | Python 3.12 + `uv` | *N/A (Stateless)* | Telegram webhook/polling daemon |
 | **Database** | PostgreSQL 18 | `5433:5432` | Primary transactional storage |
 | **DB Administration** | DBeaver / CLI | *Via SSH Tunnel / Host Port* | Direct administration without exposed web GUIs |
 | **LLM Engine** | Gemini 1.5 Flash | *API* | Voice transcription and entity extraction |
-```
 
 ---
 
