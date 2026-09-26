@@ -1,4 +1,4 @@
-# Development Plan: My Family Budget Bot (AI Engineer Edition)
+# Development Plan: Family Budget Bot (AI Engineer Edition)
 
 This document describes the step-by-step implementation plan for the financial agent. The project focuses on integrating modern AI patterns (NLP, NL2SQL, Vision, MCP) to create an intelligent assistant and build a strong AI engineer portfolio.
 
@@ -18,6 +18,8 @@ This document describes the step-by-step implementation plan for the financial a
 - [x] Interactive history: inline pagination and transaction management.
 - [x] Statement parsing (Excel/XLSX) with automatic deduplication and bulk categorization.
 - [x] **Stateless Architecture & Docker:** Refactoring into a lightweight ingestion layer and containerization.
+- [x] **Bit Statement Import & Reconciliation:** Parsing Bit CSV exports, transit balance matching, and duplicate prevention.
+- [x] **Database-Level Trigger Sync:** Automated alias learning via `trg_update_item_alias` on category change.
 
 ## Phase 3: Chat with Data (Analytics via NL2SQL) [DONE]
 *Goal: Replace boring statistics buttons with full conversation with data.*
@@ -26,15 +28,17 @@ This document describes the step-by-step implementation plan for the financial a
 - [x] Chart generation: based on SQL query results, the bot builds charts (Pie/Bar chart) and sends them as images.
 - [x] Reporting optimization: grouping by parent categories and improved chart visualization.
 
-## Phase 4: Vision AI & Integration (MCP)
-...
+## Phase 4: Vision AI & Agent Integration (MCP)
+*Goal: Expand multimodal ingestion with document processing and external tool protocols.*
+- [ ] **Receipt & Invoice Scanning:** Extracting structured transaction items from photos using Gemini Vision API.
+- [ ] **Model Context Protocol (MCP) Server:** Exposing budget querying and financial logging tools via standardized MCP interfaces.
 
 ## Phase 5: Ergonomics and UX/UI (Polishing)
 *Goal: Add final touches, make bot interaction seamless.*
 - [ ] **AI-powered message routing:** Replace hardcoded keywords with a neural network classifier (Expense vs. Analytics).
 - [ ] **Main menu (ReplyKeyboard):** Pack main commands (`/history`, `/stats`, etc.) into convenient buttons at the bottom of the screen.
 - [ ] **User Comments & Notes (Reply style):** Add comments to transactions via replying (Reply) to the bot's message.
-- [ ] Localization and interface language configuration via database.
+- [x] Localization and interface language configuration via database.
 - [ ] Improved visual format of text reports (emojis, formatting).
 
 ## Phase 6: Extended Functionality via Telegram Web App (TWA)
