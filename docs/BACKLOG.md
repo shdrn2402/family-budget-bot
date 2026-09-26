@@ -10,3 +10,4 @@ In this file, we record ideas, technical improvements, and feature requests that
 - [ ] **Proactive Financial Advisor:** Background cron agent that runs scheduled analyses on monthly spending, detects budget anomalies, and surfaces actionable advice via push notifications.
 - [ ] **Self-Service Card & Account Management:** Bot-driven UI for updating card masks (e.g., migrating from `4787` to `9999`) while preserving historical ledger links, keeping card masks decoupled from logical account entities.
 - [ ] **Admin Control Panel:** Dedicated Telegram interface for users with `is_admin = true` to onboard family members, manage accounts, and assign permissions directly from chat.
+- [ ] **Data Engineering Refactor (Serverless ELT):** Migrate from a monolithic synchronous bot to an event-driven architecture using AWS Lambda (Ingestion), AWS S3 (Bronze Data Lake), and a batch-processing worker to populate the Silver/Gold layers in PostgreSQL (Supabase).
