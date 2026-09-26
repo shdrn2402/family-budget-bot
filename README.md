@@ -6,6 +6,7 @@
 [![Database: PostgreSQL 18](https://img.shields.io/badge/database-postgresql--18-blue)](https://www.postgresql.org/)
 [![AI: Gemini 1.5 Flash](https://img.shields.io/badge/AI-Gemini%201.5%20Flash-orange)](https://ai.google.dev/)
 [![Security: Hardened](https://img.shields.io/badge/DB_Access-Direct%20%2F%20SSH%20Tunnel-informational)](#-tech-stack--port-mapping)
+[![Status: In Progress](https://img.shields.io/badge/Status-In%20Progress-yellow)](#-roadmap--backlog)
 
 **Family Budget Bot** is a private, bilingual (English/Russian) Telegram bot designed for family finance tracking. It combines LLM-powered natural language processing, voice transcription, and structured database synchronization.
 
