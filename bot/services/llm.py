@@ -6,6 +6,15 @@ from bot.config import Config
 
 logger = logging.getLogger(__name__)
 
+GEMINI_TEXT_MODEL_URL: str = (
+    "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
+)
+
+
+def gemini_headers() -> dict[str, str]:
+    """Send the API key in a header so it never appears in request URLs or logs."""
+    return {"x-goog-api-key": Config.GEMINI_API_KEY or ""}
+
 async def parse_natural_language(text: str) -> List[Dict[str, Any]]:
     """
     Parses natural language text into structured expense items using Gemini API.
@@ -15,7 +24,7 @@ async def parse_natural_language(text: str) -> List[Dict[str, Any]]:
         logger.error("GEMINI_API_KEY is not set.")
         return []
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={Config.GEMINI_API_KEY}"
+    url = GEMINI_TEXT_MODEL_URL
     
     # We define the JSON schema for strict structured output
     schema = {
@@ -58,7 +67,7 @@ async def parse_natural_language(text: str) -> List[Dict[str, Any]]:
 
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, timeout=15.0)
+            response = await client.post(url, json=payload, headers=gemini_headers(), timeout=15.0)
             if response.status_code != 200:
                 logger.error(f"Gemini API Error: {response.status_code} - {response.text}")
             response.raise_for_status()
@@ -84,7 +93,7 @@ async def translate_question_to_sql(question: str, user_id: int) -> Dict[str, An
         return {"error": "no_api_key"}
 
     # We don't pass current_date from Python anymore to keep it DB-native as requested.
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={Config.GEMINI_API_KEY}"
+    url = GEMINI_TEXT_MODEL_URL
     
     schema = {
         "type": "OBJECT",
@@ -132,7 +141,7 @@ async def translate_question_to_sql(question: str, user_id: int) -> Dict[str, An
 
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, timeout=20.0)
+            response = await client.post(url, json=payload, headers=gemini_headers(), timeout=20.0)
             response.raise_for_status()
             data = response.json()
             return json.loads(data["candidates"][0]["content"]["parts"][0]["text"])
@@ -150,7 +159,7 @@ async def generate_answer_from_data(question: str, data_rows: List[Dict], error:
     if not data_rows:
         return "Ничего не нашел по этому запросу / I found no data for this request."
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key={Config.GEMINI_API_KEY}"
+    url = GEMINI_TEXT_MODEL_URL
     
     prompt = f"""
     Answer the user's question based on the database results.
@@ -167,7 +176,12 @@ async def generate_answer_from_data(question: str, data_rows: List[Dict], error:
 
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json={"contents": [{"parts": [{"text": prompt}]}]}, timeout=15.0)
+            response = await client.post(
+                url,
+                json={"contents": [{"parts": [{"text": prompt}]}]},
+                headers=gemini_headers(),
+                timeout=15.0,
+            )
             response.raise_for_status()
             result = response.json()
             return result["candidates"][0]["content"]["parts"][0]["text"]

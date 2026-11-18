@@ -2,6 +2,7 @@ import logging
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 from bot.database import get_db_connection
+from bot.handlers.common import check_access
 import psycopg
 from psycopg.rows import dict_row
 
@@ -12,9 +13,15 @@ logger = logging.getLogger(__name__)
 async def inline_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handles all inline keyboard callback queries."""
     query = update.callback_query
+    user_lang = update.effective_user.language_code if update.effective_user else None
+
+    # Callback buttons can be pressed by anyone who sees the message, so check access here too.
+    if not await check_access(update):
+        await query.answer(get_text("access_denied", user_lang), show_alert=True)
+        return
+
     await query.answer()  # Tell Telegram we received the click
     
-    user_lang = update.effective_user.language_code
     data = query.data
     
     if data == "ignore":
