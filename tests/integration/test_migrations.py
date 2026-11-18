@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy.engine import URL
 
-from bot.db_migrate import BASELINE_REVISION, PartialSchemaError, run_migrations, upgrade_to
+from bot.db_migrate import BASELINE_REVISION, PartialSchemaError, head_revision, run_migrations, upgrade_to
 from tests.integration.conftest import connect
 from tests.integration.schema_snapshot import schema_snapshot
 
@@ -39,23 +39,29 @@ def test_baseline_revision_matches_production_schema(create_database: Callable[[
         assert schema_snapshot(baseline) == schema_snapshot(prod)
 
 
-def test_existing_unversioned_database_is_stamped_without_schema_changes(
+def test_existing_unversioned_database_is_adopted_as_baseline(
     create_database: Callable[[], URL],
 ) -> None:
-    """Production today: tables exist, no alembic_version. Adopting it must not run any DDL."""
+    """
+    A pre-Alembic production database is stamped as the baseline (no DDL for 0001),
+    then only the newer revisions run. It must end up identical to a fresh database
+    at head, with its data kept.
+    """
     url = create_database()
     _load_prod_schema(url)
     with connect(url) as conn:
         conn.execute("INSERT INTO budget.users (id, name) VALUES (1, 'existing user')")
         conn.commit()
-        before = schema_snapshot(conn)
 
     run_migrations(url, max_retries=1)
 
-    assert _alembic_version(url) == BASELINE_REVISION
-    with connect(url) as conn:
-        assert schema_snapshot(conn) == before
-        assert conn.execute("SELECT count(*) FROM budget.users").fetchone()[0] == 1
+    fresh_url = create_database()
+    upgrade_to("head", fresh_url)
+
+    assert _alembic_version(url) == head_revision()
+    with connect(url) as adopted, connect(fresh_url) as fresh:
+        assert schema_snapshot(adopted) == schema_snapshot(fresh)
+        assert adopted.execute("SELECT count(*) FROM budget.users").fetchone()[0] == 1
 
 
 def test_empty_database_gets_schema_and_seed(create_database: Callable[[], URL]) -> None:
@@ -63,7 +69,7 @@ def test_empty_database_gets_schema_and_seed(create_database: Callable[[], URL])
 
     run_migrations(url, max_retries=1)
 
-    assert _alembic_version(url) == BASELINE_REVISION
+    assert _alembic_version(url) == head_revision()
     with connect(url) as conn:
         categories = conn.execute("SELECT count(*) FROM budget.categories").fetchone()[0]
         assert categories == 44
