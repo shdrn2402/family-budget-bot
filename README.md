@@ -87,7 +87,13 @@ Ensure Docker and Compose are installed, then run:
 ```bash
 docker compose up -d --build
 ```
-On startup, the bot automatically checks if the database is initialized. If not, it attempts to restore the schema from the latest SQL file in `backups/` or falls back to running `scripts/schema.sql` and `scripts/seed_data.sql`.
+On startup, the bot brings the database schema up to date with [Alembic](https://alembic.sqlalchemy.org/) migrations (`migrations/`):
+*   **Empty database:** creates the schema, then loads the reference data from `scripts/seed_data.sql`.
+*   **Existing database created before migrations were introduced:** marks it as the baseline revision without changing it, then applies newer migrations.
+*   **Already migrated:** applies any new migrations.
+*   **Incomplete schema:** refuses to start. Nothing is ever dropped automatically.
+
+To change the schema, add a new revision (`uv run alembic revision -m "describe the change"`) instead of editing existing ones.
 
 ### 3. Running Locally without Docker (for debugging)
 Install Astral `uv` and run:
@@ -97,12 +103,18 @@ uv run pytest     # Run tests
 uv run main.py    # Start the bot
 ```
 
-### 4. Syncing Production Data to Local
-To fetch the latest production backups for local debugging, execute:
+Integration tests (`tests/integration/`) run against a real PostgreSQL and are skipped unless `TEST_DATABASE_URL` is set:
 ```bash
-./scripts/sync_db.sh
+docker run --rm -d --name budget-test-pg -p 127.0.0.1:55432:5432 -e POSTGRES_PASSWORD=postgres postgres:18
+TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:55432/postgres uv run pytest
 ```
-*Note: This script downloads backup dumps from the production VPS and automatically spins up a local database pre-populated with actual data.*
+
+### 4. Restoring a Backup
+Restoring is a manual, explicit operation. Get a backup (for example from the bot's `/backup` command, or a pre-deploy `backup_before_deploy_*.dump` on the server), then run from the directory containing `compose.yaml`:
+```bash
+./scripts/restore_db.sh path/to/backup.sql   # or .dump
+```
+The script asks you to type the database name, stops the bot, replaces the `budget` schema with the backup, and starts the bot again; the bot then applies any missing migrations. Plain `.sql` backups are restored in a single transaction, so a failed restore changes nothing.
 
 ---
 
