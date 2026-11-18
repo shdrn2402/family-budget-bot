@@ -40,6 +40,8 @@ RUN uv sync --frozen --no-install-project --no-dev --no-cache
 # Copy application files
 COPY --chown=budget_user:budget_group bot/ ./bot/
 COPY --chown=budget_user:budget_group scripts/ ./scripts/
+COPY --chown=budget_user:budget_group alembic.ini ./alembic.ini
+COPY --chown=budget_user:budget_group migrations/ ./migrations/
 COPY --chown=budget_user:budget_group main.py ./main.py
 
 # Set entry point
