@@ -27,6 +27,7 @@ services:
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - BOT_TIMEZONE=${BOT_TIMEZONE:-Asia/Jerusalem}
     volumes:
       - "telegram_data:/logs"
       - "db_backups:/app/backups"
