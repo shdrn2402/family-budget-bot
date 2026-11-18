@@ -123,7 +123,7 @@
 **Goal:** Fix the Isracard parser and simplify bulk transaction categorization.
 
 - [x] Ignore pending transactions (without a voucher) during Isracard import to prevent data loss due to collisions.
-- [x] Move alias update logic to the database level (PostgreSQL trigger on `UPDATE transactions`), eliminating duplicate Python code.
+- [x] Move alias update logic to the database level (PostgreSQL trigger on `UPDATE transactions`), eliminating duplicate Python code. *(Reverted in #8: the trigger duplicated the Python sync and was dropped in migration `0002`.)*
 - [x] Create the `/uncategorized` command to list uncategorized transactions in Telegram with a convenient Inline keyboard.
 
 ---
