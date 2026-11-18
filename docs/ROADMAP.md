@@ -19,7 +19,7 @@ This document describes the step-by-step implementation plan for the financial a
 - [x] Statement parsing (Excel/XLSX) with automatic deduplication and bulk categorization.
 - [x] **Stateless Architecture & Docker:** Refactoring into a lightweight ingestion layer and containerization.
 - [x] **Bit Statement Import & Reconciliation:** Parsing Bit CSV exports, transit balance matching, and duplicate prevention.
-- [x] **Database-Level Trigger Sync:** Automated alias learning via `trg_update_item_alias` on category change.
+- [x] **Alias Learning on Category Change:** Automated alias learning when a category is changed in the bot. (The original database trigger `trg_update_item_alias` was removed in #8; learning now happens only in the application code.)
 
 ## Phase 3: Chat with Data (Analytics via NL2SQL) [DONE]
 *Goal: Replace boring statistics buttons with full conversation with data.*
