@@ -1,6 +1,7 @@
 MESSAGES: dict[str, dict[str, str]] = {
     "en": {
         "access_denied": "Sorry, this bot is private.",
+        "admin_only": "⛔ This command is available to admins only.",
         "start_greeting": "Hello! I am your family budget bot 💰\nI successfully receive your messages.",
         "echo_reply": "You wrote: {text}\n(Echo test works)",
         "parse_error": "Could not recognize the expenses. Try format: 'item account amount', e.g., 'taxi card 500'",
@@ -41,6 +42,7 @@ MESSAGES: dict[str, dict[str, str]] = {
     },
     "ru": {
         "access_denied": "Извините, этот бот приватный и работает только для моей семьи.",
+        "admin_only": "⛔ Эта команда доступна только администраторам.",
         "start_greeting": "Привет! Я бот для ведения семейного бюджета 💰\nЯ успешно получаю твои сообщения. Настройки БД и фильтрация готовы!",
         "echo_reply": "Вы написали: {text}\n(Эхо-проверка работает)",
         "parse_error": "Не удалось распознать покупки. Попробуйте формат: 'товар счет сумма', например 'такси кредитка 500'",

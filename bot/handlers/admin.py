@@ -4,7 +4,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from bot.handlers.common import check_access
 from bot.services.backup import create_database_dump, export_aliases_to_yaml
-from bot.database import get_db_connection
+from bot.database import get_db_connection, get_user_info
 from psycopg.rows import dict_row
 from bot.texts import get_text
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
@@ -17,6 +17,12 @@ async def backup_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     Generates a database dump and an aliases.yaml export, then sends them to the user.
     """
     if not await check_access(update):
+        return
+
+    # The dump contains the whole database, so restrict it to admins (fail closed).
+    user_info = await get_user_info(update.effective_user.id)
+    if not user_info or not user_info.get("is_admin"):
+        await update.message.reply_text(get_text("admin_only", update.effective_user.language_code))
         return
 
     # Inform the user that the backup is starting
