@@ -13,6 +13,11 @@ from bot.handlers.document import document_handler
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
+# httpx logs every request URL at INFO. Telegram API URLs contain the bot token,
+# so keep these loggers at WARNING to keep secrets out of the logs.
+for _noisy_logger in ("httpx", "httpcore"):
+    logging.getLogger(_noisy_logger).setLevel(logging.WARNING)
+
 logger = logging.getLogger(__name__)
 
 def main() -> None:

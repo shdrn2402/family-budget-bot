@@ -2,6 +2,7 @@ import httpx
 import base64
 import logging
 from bot.config import Config
+from bot.services.llm import gemini_headers
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +14,7 @@ async def transcribe_voice(audio_bytes: bytes) -> str:
         logger.error("GEMINI_API_KEY is not set.")
         return ""
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={Config.GEMINI_API_KEY}"
+    url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
     
     # Encode audio bytes to base64 string
     audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
@@ -34,7 +35,7 @@ async def transcribe_voice(audio_bytes: bytes) -> str:
 
     try:
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, timeout=20.0)
+            response = await client.post(url, json=payload, headers=gemini_headers(), timeout=20.0)
             if response.status_code != 200:
                 logger.error(f"Gemini Voice API Error: {response.status_code} - {response.text}")
             response.raise_for_status()
