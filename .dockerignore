@@ -24,6 +24,3 @@ logs/
 .vscode/
 .cursor/
 .antigravityignore
-
-# Temporary / Legacy scripts
-scripts/deprecated/

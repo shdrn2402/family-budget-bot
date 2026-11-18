@@ -131,7 +131,7 @@
 ## 5. Historical Cash Expense Import (Migration)
 **Goal:** Develop and run a migration script to import historical cash expenses from the old bot version to populate analytics data.
 
-- [x] Develop migration script `scripts/import_historical_cash.py` to read `bank_statements/legacy_cash_transactions_2023_2025.csv`.
+- [x] Develop migration script `scripts/import_historical_cash.py` to read `bank_statements/legacy_cash_transactions_2023_2025.csv` (since removed; see `docs/LEGACY_SCRIPTS.md`).
 - [x] Filter out transactions where `financing_source = 'Cash'`.
 - [x] Map categories from the CSV file to the `seed_data.sql` structure (including parsing fuzzy categories like `Personal expenses` and `Other` using keywords in `purchase_name`).
 - [x] Import transactions into the `budget.transactions` table under the account `account_id = 4` (Shared Cash).
