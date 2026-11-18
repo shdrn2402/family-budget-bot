@@ -18,6 +18,7 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config as AlembicConfig
+from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, inspect, pool
 from sqlalchemy.engine import URL, Connection, Engine
 from sqlalchemy.exc import OperationalError
@@ -125,12 +126,31 @@ def _connect_with_retry(engine: Engine, max_retries: int, retry_delay: float) ->
     raise RuntimeError("unreachable")
 
 
+def head_revision() -> str:
+    """The newest revision in migrations/versions."""
+    head = ScriptDirectory.from_config(AlembicConfig(str(ALEMBIC_INI))).get_current_head()
+    if head is None:
+        raise RuntimeError("No Alembic revisions found.")
+    return head
+
+
 def upgrade_to(revision: str, database_url: URL | None = None) -> None:
     """Upgrade to a specific revision. Used by tests and for manual operations."""
     engine = create_engine(database_url or build_database_url(), poolclass=pool.NullPool)
     try:
         with engine.connect() as connection:
             command.upgrade(_alembic_config(connection), revision)
+            connection.commit()
+    finally:
+        engine.dispose()
+
+
+def downgrade_to(revision: str, database_url: URL | None = None) -> None:
+    """Downgrade to a specific revision. Used by tests and for manual operations."""
+    engine = create_engine(database_url or build_database_url(), poolclass=pool.NullPool)
+    try:
+        with engine.connect() as connection:
+            command.downgrade(_alembic_config(connection), revision)
             connection.commit()
     finally:
         engine.dispose()
