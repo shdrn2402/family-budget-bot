@@ -4,10 +4,20 @@ on:
   push:
     branches:
       - main
+  # Pull requests run only the test job; build and deploy are skipped (see `if:` below).
+  pull_request:
+    branches:
+      - main
 
+# Least privilege by default; the build job adds `packages: write` for itself.
 permissions:
   contents: read
-  packages: write
+
+# A new commit on a PR cancels that PR's outdated run. Runs on main are never
+# cancelled, so a deploy can't be interrupted halfway through.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:
@@ -39,6 +49,7 @@ jobs:
   build-and-push:
     name: Build and Push Docker Image
     needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -64,6 +75,7 @@ jobs:
   deploy:
     name: Deploy to VPS
     needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
