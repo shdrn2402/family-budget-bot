@@ -30,6 +30,7 @@ bot/temp_plots/
 
 # === Project: Working Documents (not for repo) ===
 docs/history/
+docs/audit/
 
 # === IDE ===
 .vscode/
