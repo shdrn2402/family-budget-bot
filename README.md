@@ -53,17 +53,22 @@ graph TD
 
 The project features a fully automated CI/CD pipeline configured via GitHub Actions (`deploy.yaml`).
 
+### When It Runs
+*   **Pull requests to `main`:** only **Run Tests**. The result is shown on the PR, and a PR must pass it before merging. No image is built and nothing is deployed.
+*   **Pushes to `main`** (i.e. merged PRs): all three stages below.
+*   A newer commit on the same PR cancels that PR's outdated run. Runs on `main` are never cancelled, so a deploy is never interrupted.
+
 ### Pipeline Stages
 1.  **Run Tests:** Automatically provisions a runner, restores dependencies using cached Astral `uv`, and executes unit tests via `pytest`.
 2.  **Build and Push:** Compiles the Docker image and pushes it to the GitHub Container Registry (`ghcr.io/shdrn2402/my_family_budget/budget_bot:latest`).
 3.  **VPS Deploy:** Connects to the DigitalOcean VPS via SSH:
     *   Creates an automatic pre-deployment database dump inside `./backups/` to prevent data loss.
     *   Regenerates the local `.env` configuration file from GitHub Secrets.
-    *   Pulls the updated repository code.
+    *   Copies `compose.yaml` to the server and pulls the new bot image.
     *   Launches services using `docker compose` in detached mode.
 
 > [!NOTE]
-> Pushes containing the tag `[skip ci]` in their commit message bypass the CI/CD pipeline execution.
+> Commits containing `[skip ci]` in their message skip the pipeline, including the PR checks. Use it only for docs-only changes. When merging such a PR, use **Squash and merge** with `[skip ci]` in the title so the commit on `main` carries the tag.
 
 ---
 
