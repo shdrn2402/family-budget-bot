@@ -49,6 +49,7 @@ async def test_document_handler_success():
          patch("bot.handlers.document.check_access", return_value=True), \
          patch("bot.handlers.document.get_db_connection", side_effect=mock_get_db_conn), \
          patch("bot.handlers.document.get_all_item_aliases", new_callable=AsyncMock) as mock_aliases, \
+         patch("bot.handlers.document.get_user_card_account", new_callable=AsyncMock, return_value={"id": 7}), \
          patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
          
         # Mock parsing returning 1 transaction
@@ -71,7 +72,7 @@ async def test_document_handler_success():
         mock_backup.assert_called_once()
         
         # Verify parsing was called with our hint from caption
-        mock_import.assert_called_once_with("temp_imports/statement.xlsx", hint="isracard")
+        mock_import.assert_called_once_with("temp_imports/statement.xlsx", hint="isracard", bit_card_account_id=7)
         
         # Verify save to db
         mock_save.assert_called_once()
@@ -117,6 +118,7 @@ async def test_document_handler_csv_success():
          patch("bot.handlers.document.check_access", return_value=True), \
          patch("bot.handlers.document.get_db_connection", side_effect=mock_get_db_conn), \
          patch("bot.handlers.document.get_all_item_aliases", new_callable=AsyncMock) as mock_aliases, \
+         patch("bot.handlers.document.get_user_card_account", new_callable=AsyncMock, return_value={"id": 7}), \
          patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
          
         # Mock parsing returning 1 transaction
@@ -131,7 +133,42 @@ async def test_document_handler_csv_success():
         task = DEBOUNCE_JOBS[123]['task']
         await task
         
-        mock_import.assert_called_once_with("temp_imports/bit_transactions.csv", hint="bit")
+        mock_import.assert_called_once_with("temp_imports/bit_transactions.csv", hint="bit", bit_card_account_id=7)
+
+
+@pytest.mark.asyncio
+async def test_bit_export_without_a_linked_card_is_reported():
+    """#12: without the uploader's own card, a Bit file is reported instead of filed on another card."""
+    from bot.services.importer import BitCardAccountMissing
+    from bot.texts import get_text
+
+    DEBOUNCE_JOBS.clear()
+    update = MagicMock()
+    doc = MagicMock()
+    doc.file_name = "bit_transactions.csv"
+    doc.file_id = "file_125"
+    update.message.document = doc
+    update.message.caption = None
+    update.effective_user.id = 123
+    update.effective_user.language_code = "en"
+    status_msg = MagicMock()
+    status_msg.edit_text = AsyncMock()
+    update.message.reply_text = AsyncMock(return_value=status_msg)
+    context = MagicMock()
+    context.bot.get_file = AsyncMock(return_value=AsyncMock())
+
+    with patch("bot.handlers.document.import_excel_file", side_effect=BitCardAccountMissing()), \
+         patch("bot.handlers.document.save_transactions_bulk", new_callable=AsyncMock) as mock_save, \
+         patch("bot.handlers.document.check_access", return_value=True), \
+         patch("bot.handlers.document.get_user_card_account", new_callable=AsyncMock, return_value=None), \
+         patch("asyncio.sleep", new_callable=AsyncMock):
+        await document_handler(update, context)
+        await DEBOUNCE_JOBS[123]['task']
+
+    mock_save.assert_not_called()
+    report = status_msg.edit_text.call_args[0][0]
+    assert get_text("import_bit_no_card", "en") in report
+    assert "bit_transactions.csv" in report
 
 
 @pytest.mark.asyncio
