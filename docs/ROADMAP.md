@@ -1,48 +1,71 @@
-# Development Plan: Family Budget Bot (AI Engineer Edition)
+# Roadmap: from Telegram bot to data platform
 
-This document describes the step-by-step implementation plan for the financial agent. The project focuses on integrating modern AI patterns (NLP, NL2SQL, Vision, MCP) to create an intelligent assistant and build a strong AI engineer portfolio.
+The project is moving from a Telegram bot with a database to a small, production-style data platform. The bot stays as the household's entry point. Statement ingestion, reconciliation and categorization move into a tested ELT pipeline, and the outputs are an on-demand dashboard and a monthly report per card billing cycle.
 
-## Phase 1: Database Foundation & Smart Data Entry (MVP)
-*Goal: Set up the project architecture and implement "smart" data entry via LLM instead of legacy regular expressions.*
-- [x] Database setup and user binding (`user_id`).
-- [x] **Fast Data Entry (MVP):** Implementation of an ultra-fast parser based on the "item account amount" format using an alias database.
-- [x] Saving structured transactions to PostgreSQL.
-- [x] Integration with LLM (via API or a local model).
-- [x] **NLP Data Entry (Function Calling):** Natural language free-text processing (e.g., "spent 500 on coffee yesterday in cash and 2k on fuel with credit card") — extracting entities via LLM and mapping.
-- [x] Basic `/history` command to verify parsing correctness.
+**Target architecture (hybrid):**
+- The bot and PostgreSQL stay on the existing VPS.
+- Statement files land in an S3 bucket (immutable, versioned). S3 events go through SQS to Lambda parsers, which write Parquet (bronze).
+- A loader appends bronze into raw tables in Postgres. dbt builds the staging, intermediate and mart layers.
+- Orchestration starts with scheduled GitHub Actions and moves to Dagster on the VPS.
+- Infrastructure is managed with Terraform.
 
-## Phase 2: UX Improvements & Multimodal Input (Completed ✅)
-*Goal: Expand input channels and add a convenient editing interface.*
-- [x] **Voice-to-Text:** Voice message processing (via Whisper/Gemini) with subsequent routing to the Phase 1 pipeline.
-- [x] Inline menu after entry: `[Change Category]` and `[Delete]` buttons.
-- [x] Interactive history: inline pagination and transaction management.
-- [x] Statement parsing (Excel/XLSX) with automatic deduplication and bulk categorization.
-- [x] **Stateless Architecture & Docker:** Refactoring into a lightweight ingestion layer and containerization.
-- [x] **Bit Statement Import & Reconciliation:** Parsing Bit CSV exports, transit balance matching, and duplicate prevention.
-- [x] **Alias Learning on Category Change:** Automated alias learning when a category is changed in the bot. (The original database trigger `trg_update_item_alias` was removed in #8; learning now happens only in the application code.)
+Each stage ends in a deployable state with the bot still working.
 
-## Phase 3: Chat with Data (Analytics via NL2SQL) [DONE]
-*Goal: Replace boring statistics buttons with full conversation with data.*
-- [x] **Text-to-SQL Pipeline:** Translating user questions ("How much did we spend on food this month?") into safe SQL queries.
-- [x] Executing queries in the DB and generating a summary text response via LLM.
-- [x] Chart generation: based on SQL query results, the bot builds charts (Pie/Bar chart) and sends them as images.
-- [x] Reporting optimization: grouping by parent categories and improved chart visualization.
+## Done: the bot (before the data platform)
+- [x] Manual entry in the `item account amount` format, resolved through an alias database.
+- [x] Statement import (Isracard, Leumi, Bit) with deduplication, bulk categorization and batch upload summaries.
+- [x] Transit (Bit) and cash wallet tracking, with reconciliation between Bit and card/bank statements.
+- [x] Inline editing, interactive `/history`, `/uncategorized`, localization.
+- [x] Docker deployment with CI/CD to the VPS.
 
-## Phase 4: Vision AI & Agent Integration (MCP)
-*Goal: Expand multimodal ingestion with document processing and external tool protocols.*
-- [ ] **Receipt & Invoice Scanning:** Extracting structured transaction items from photos using Gemini Vision API.
-- [ ] **Model Context Protocol (MCP) Server:** Exposing budget querying and financial logging tools via standardized MCP interfaces.
+## Stage 0: Stabilize and strip [DONE]
+*Goal: a safe base before any new architecture.*
+- [x] Production fixes: timezone, access checks on callbacks and admin commands.
+- [x] Alembic migrations from a baseline of the production schema, applied at startup; restore is an explicit manual script.
+- [x] CI runs the tests on every pull request, including integration tests against a disposable PostgreSQL.
+- [x] Reconciliation fixes: deduplication before matching, matching on the same account, working Bit reconciliation.
+- [x] The AI layer (Gemini, voice input, NL→SQL analytics, charts) and dead code removed. Text that can't be parsed gets a reply showing the expected format.
 
-## Phase 5: Ergonomics and UX/UI (Polishing)
-*Goal: Add final touches, make bot interaction seamless.*
-- [ ] **AI-powered message routing:** Replace hardcoded keywords with a neural network classifier (Expense vs. Analytics).
-- [ ] **Main menu (ReplyKeyboard):** Pack main commands (`/history`, `/stats`, etc.) into convenient buttons at the bottom of the screen.
-- [ ] **User Comments & Notes (Reply style):** Add comments to transactions via replying (Reply) to the bot's message.
-- [x] Localization and interface language configuration via database.
-- [ ] Improved visual format of text reports (emojis, formatting).
+## Stage 1: Core refactor, ready for ingestion
+*Goal: separate domain logic from Telegram so parsers can run anywhere.*
+- [ ] Split into packages: `budget_core/` (domain types, parsers, rules), `bot/` (Telegram adapter), `db/` (repositories on a connection pool).
+- [ ] Parsers become pure functions returning typed records, with a parser version and statement-level metadata (statement period, card charge date).
+- [ ] Household-specific values move out of the code into database tables or private config. Seed data is split into a public category tree, private household data and a fake household for tests.
+- [ ] Committed, hand-made statement fixtures for each format, with golden outputs, plus a scenario dataset of named reconciliation cases.
+- [ ] Secret scanning (gitleaks) in pre-commit and CI.
 
-## Phase 6: Extended Functionality via Telegram Web App (TWA)
-*Goal: Leave the bot for quick entry (on-the-go), and move complex analysis and reconciliation to a convenient Web interface.*
-- [ ] Development of dashboards for statistics and budgeting visualization.
-- [ ] **Statement Manager (Reconciliation UI):** Interface for convenient manual mapping of pending transactions (`pending`) with a bank statement if automatic matching failed.
-- [ ] Extended management of categories, tags, and monthly budget limits.
+## Stage 2: Raw landing zone in S3
+*Goal: every statement file is preserved immutably.*
+- [ ] Terraform: an encrypted, versioned S3 bucket with public access blocked, a least-privilege IAM identity for the bot, and a budget alarm.
+- [ ] The bot uploads every file to the landing zone, keyed by its hash, and records it in an ingest registry. It keeps importing in-process as before (dual-write).
+- [ ] Local development with MinIO; tests with moto.
+
+## Stage 3: Serverless parsing to bronze
+*Goal: event-driven ingestion.*
+- [ ] S3 notifications → SQS (with a dead-letter queue) → Lambda, deployed from GitHub Actions with OIDC.
+- [ ] The Lambda reuses the `budget_core` parsers, validates the schema and writes Parquet to bronze.
+- [ ] Bronze output is compared with the in-process import for every file.
+
+## Stage 4: Warehouse and dbt
+*Goal: business logic moves into tested SQL models.*
+- [ ] An idempotent loader appends bronze into `raw` tables.
+- [ ] dbt models: staging, then deduplication, reconciliation, internal transfers and categorization, then marts (transactions, period summaries, wallet balances, data completeness, anomalies).
+- [ ] Category overrides with an explicit scope (one transaction or a whole merchant), which resolves the global alias overwrite in `docs/KNOWN_ISSUES.md`.
+- [ ] `dbt build` runs in CI on the scenario fixtures; the dbt docs site is published.
+- [ ] The bot reads from the marts, and the in-process import path is removed.
+
+## Stage 5: Orchestration and observability
+- [ ] Scheduled runs, then Dagster: bronze → raw → dbt, with backfill and replay from the landing zone.
+- [ ] Freshness, data quality and dead-letter alerts to a Telegram admin chat.
+- [ ] A completeness check per billing period, with reminders about missing statements.
+
+## Stage 6: Deliverables
+*All serving is private to the household.*
+- [ ] On-demand dashboard over the marts, run locally through an SSH tunnel with a read-only role.
+- [ ] Monthly PDF report per card billing cycle, triggered when the period's data is complete and delivered through Telegram.
+- [ ] Bot `/stats` command with quick text totals.
+
+## Stage 7 (optional): AI as a pipeline component
+- [ ] A written summary section in the monthly report, generated from aggregates only and checked against the data.
+- [ ] LLM categorization for merchants the rules can't place, with cached results and tracked confidence.
+- [ ] Natural-language questions over the marts only, through a read-only role.
