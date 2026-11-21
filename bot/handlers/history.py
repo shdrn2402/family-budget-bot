@@ -1,5 +1,4 @@
 import logging
-import json
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 from bot.database import get_recent_transactions, get_transactions_count

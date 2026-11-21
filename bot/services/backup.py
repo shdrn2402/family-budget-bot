@@ -1,6 +1,4 @@
 import os
-import subprocess
-import tempfile
 import yaml
 import logging
 from datetime import datetime

@@ -1,6 +1,4 @@
 import logging
-import traceback
-from telegram import Update
 from telegram.ext import ContextTypes
 from bot.texts import get_text
 

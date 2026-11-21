@@ -1,5 +1,6 @@
 import pytest
 from datetime import date
+from contextlib import nullcontext
 from unittest.mock import AsyncMock, patch, MagicMock
 from bot.services.expense import save_expense_item
 
@@ -26,7 +27,7 @@ async def test_save_expense_cash_expense():
         mock_get_type.return_value = 'cash'
         
         # Mock get_text to just return the key for simplicity in assertions
-        with patch('bot.services.expense.get_text', side_effect=lambda key, lang, **kwargs: key):
+        with nullcontext():
             # Mock get_local_date to return a fixed date
             with patch('bot.services.expense.get_local_date') as mock_get_local_date:
                 mock_get_local_date.return_value = date(2026, 7, 8)
@@ -66,7 +67,7 @@ async def test_save_expense_income():
     with patch('bot.services.expense.get_account_type', new_callable=AsyncMock) as mock_get_type:
         mock_get_type.return_value = 'card'
         
-        with patch('bot.services.expense.get_text', side_effect=lambda key, lang, **kwargs: key):
+        with nullcontext():
             mock_cursor.fetchone.side_effect = [{'parent_id': 1}, {'id': 101}]
             
             result = await save_expense_item(item, 12345, 'en', mock_conn, 'manual_text')
@@ -95,7 +96,7 @@ async def test_save_expense_card_over_limit():
     with patch('bot.services.expense.get_account_type', new_callable=AsyncMock) as mock_get_type:
         mock_get_type.return_value = 'card'
         
-        with patch('bot.services.expense.get_text', side_effect=lambda key, lang, **kwargs: key):
+        with nullcontext():
             result = await save_expense_item(item, 12345, 'en', mock_conn, 'manual_text')
             
             assert 'error' in result
@@ -116,7 +117,7 @@ async def test_save_expense_missing_account():
     
     mock_conn = MagicMock()
     
-    with patch('bot.services.expense.get_text', side_effect=lambda key, lang, **kwargs: key):
+    with nullcontext():
         result = await save_expense_item(item, 12345, 'en', mock_conn, 'manual_text')
         
         assert 'error' in result

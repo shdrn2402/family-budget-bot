@@ -15,7 +15,6 @@ import os
 import uuid
 from collections.abc import AsyncIterator, Callable, Iterator
 from dataclasses import dataclass
-from unittest.mock import patch
 
 import psycopg
 import pytest
@@ -145,12 +144,3 @@ async def household(db: psycopg.AsyncConnection) -> Household:
     await db.commit()
     return household
 
-
-@pytest.fixture
-def no_llm() -> Iterator[None]:
-    """Fail the test if the LLM fallback is reached: these tests cover the fast parser only."""
-    with patch(
-        "bot.services.expense.parse_natural_language",
-        side_effect=AssertionError("LLM fallback was called"),
-    ):
-        yield
