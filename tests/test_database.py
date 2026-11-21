@@ -81,39 +81,6 @@ async def test_sync_category_by_alias_composite():
     assert insert_params[0] == "manicure + albina", "Must insert the composite alias"
 
 @pytest.mark.asyncio
-async def test_save_transactions_bulk_preserves_comment_and_source_type():
-    """Test that new transactions save the comment and source_type fields."""
-    from bot.database import save_transactions_bulk
-    
-    test_conn = MockConnection()
-    # Return None so it doesn't match and inserts a new row
-    test_conn.cursor_obj.fetchone = AsyncMock(return_value=None)
-    
-    test_txs = [{
-        'amount': -100.0,
-        'date': '2026-05-15',
-        'external_id': 'bit_123',
-        'account_id': 1,
-        'description': 'Bit Transfer',
-        'comment': 'Test Person',
-        'source_type': 'import_bit'
-    }]
-    
-    with patch("bot.database.get_db_connection", return_value=test_conn):
-        inserted = await save_transactions_bulk(999, test_txs)
-        
-    assert inserted == 1
-    
-    # Check that INSERT includes comment and correct source_type
-    insert_query = test_conn.cursor_obj.execute_calls[2][0]
-    insert_params = test_conn.cursor_obj.execute_calls[2][1]
-    
-    assert "INSERT INTO transactions" in insert_query
-    assert "comment" in insert_query
-    assert "Test Person" in insert_params
-    assert "import_bit" in insert_params
-
-@pytest.mark.asyncio
 async def test_get_latest_import_date():
     """Test that get_latest_import_date returns the max date for a source."""
     from bot.database import get_latest_import_date

@@ -168,7 +168,8 @@ async def save_transactions_bulk(user_id: int, transactions: list, conn: psycopg
     - existing row is pending (manual entry): it's confirmed with the imported details;
     - importing Bit, existing card/bank row: the counterparty is appended to its comment;
     - importing card/bank, existing Bit row: its external_id and source are taken over.
-    Rows without a match are inserted; duplicates (same external_id) are skipped.
+    Rows whose external_id is already stored are skipped as duplicates before any matching.
+    Rows without a match are inserted.
 
     Returns the number of new or merged rows. On a database error the whole batch is rolled
     back and the error is raised (it used to be returned as 0, which looked like "duplicates").
@@ -186,6 +187,13 @@ async def save_transactions_bulk(user_id: int, transactions: list, conn: psycopg
 
         async with connection.cursor() as cur:
             for tx in transactions:
+                # Already stored (e.g. a statement uploaded again): a duplicate. This must come before
+                # matching, which could otherwise try to give another row this same external_id (#15).
+                if tx.get('external_id'):
+                    await cur.execute("SELECT 1 FROM transactions WHERE external_id = %s;", (tx['external_id'],))
+                    if await cur.fetchone():
+                        continue
+
                 current_source = tx.get('source_type', 'import_xls')
                 target_sources = ['import_xls'] if current_source == 'import_bit' else ['import_bit']
 
