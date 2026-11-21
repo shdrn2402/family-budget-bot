@@ -1,8 +1,6 @@
 import pytest
 import pandas as pd
-from datetime import datetime
 from unittest.mock import patch
-import pytest
 
 from bot.services.importer import BitCardAccountMissing, parse_leumi, parse_isracard, import_excel_file, parse_bit_csv
 
