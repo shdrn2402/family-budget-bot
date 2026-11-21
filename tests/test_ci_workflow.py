@@ -70,3 +70,10 @@ def test_outdated_runs_are_cancelled_only_for_pull_requests() -> None:
     concurrency = _workflow()["concurrency"]
     assert "github.ref" in concurrency["group"]
     assert concurrency["cancel-in-progress"] == "${{ github.event_name == 'pull_request' }}"
+
+
+def test_tests_are_linted_before_pytest_runs() -> None:
+    steps = [step.get("run", "") for step in _workflow()["jobs"]["test"]["steps"]]
+    lint = steps.index("uv run ruff check tests")
+    pytest_step = next(i for i, run in enumerate(steps) if run.startswith("uv run pytest"))
+    assert lint < pytest_step
