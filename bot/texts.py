@@ -38,7 +38,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "import_status_processing": "⏳ Processing {count} file(s)...",
         "import_report_success": "✅ <b>Import complete!</b>\n\n📥 Total found: {total_count}\n✨ New records: {inserted_count}\n⏭ Duplicates skipped: {duplicates}",
         "import_report_errors": "\n\n⚠️ <b>Errors during file processing:</b>",
-        "import_no_transactions": "❌ Could not recognize data in the statement files."
+        "import_no_transactions": "❌ Could not recognize data in the statement files.",
+        "import_bit_no_card": "Bit export needs your own card account. Link it with /start, then send the file again."
     },
     "ru": {
         "access_denied": "Извините, этот бот приватный и работает только для моей семьи.",
@@ -79,7 +80,8 @@ MESSAGES: dict[str, dict[str, str]] = {
         "import_status_processing": "⏳ Обрабатываю {count} файл(ов)...",
         "import_report_success": "✅ <b>Импорт завершен!</b>\n\n📥 Всего найдено: {total_count}\n✨ Добавлено новых: {inserted_count}\n⏭ Пропущено дубликатов: {duplicates}",
         "import_report_errors": "\n\n⚠️ <b>Ошибки при обработке файлов:</b>",
-        "import_no_transactions": "❌ Не удалось распознать данные в файлах выписок."
+        "import_no_transactions": "❌ Не удалось распознать данные в файлах выписок.",
+        "import_bit_no_card": "Для выписки Bit нужен ваш собственный счёт карты. Привяжите его через /start и отправьте файл снова."
     }
 }
 

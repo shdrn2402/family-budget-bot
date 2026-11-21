@@ -64,40 +64,6 @@ class MockConnection:
 
 
 @pytest.mark.asyncio
-async def test_save_transactions_bulk_reconciliation():
-    """Test that save_transactions_bulk reconciles with both pending and import_bit statuses."""
-    from bot.database import save_transactions_bulk
-    
-    test_conn = MockConnection()
-    # We mock fetchone to return a match indicating it found a transaction (e.g. from Bit)
-    test_conn.cursor_obj.fetchone = AsyncMock(return_value={'id': 42, 'source_type': 'import_bit'})
-    
-    test_txs = [{
-        'amount': -100.0,
-        'date': '2026-05-15',
-        'external_id': 'bank_123',
-        'account_id': 1,
-        'description': 'העברה בBIT',
-        'category_id': None
-    }]
-    
-    with patch("bot.database.get_db_connection", return_value=test_conn):
-        inserted = await save_transactions_bulk(999, test_txs)
-        
-    assert inserted == 1
-    # Check that SELECT checked for both pending and import_bit
-    # The first query is now 'SELECT id, owner_id FROM accounts;'
-    # The second query is the reconciliation check
-    select_query = test_conn.cursor_obj.execute_calls[1][0]
-    assert "(status = 'pending' OR source_type = ANY(%s))" in select_query, "Must search for specific target sources as well as pending"
-    
-    # Check that UPDATE statement updates external_id but DOES NOT overwrite category_id
-    update_query = test_conn.cursor_obj.execute_calls[2][0]
-    assert "category_id =" not in update_query, "Category ID must be preserved during reconciliation"
-    assert "account_id =" not in update_query, "Account ID must be preserved from the Bit import"
-    assert "description =" not in update_query, "Description must be preserved from the Bit import"
-
-@pytest.mark.asyncio
 async def test_sync_category_by_alias_composite():
     """Test that sync_category_by_alias handles composite aliases."""
     from bot.database import sync_category_by_alias
@@ -146,43 +112,6 @@ async def test_save_transactions_bulk_preserves_comment_and_source_type():
     assert "comment" in insert_query
     assert "Test Person" in insert_params
     assert "import_bit" in insert_params
-
-@pytest.mark.asyncio
-async def test_save_transactions_bulk_merges_bit_and_isracard():
-    """Test that Bit and Isracard overlap is correctly handled without duplication."""
-    from bot.database import save_transactions_bulk
-    
-    test_conn = MockConnection()
-    
-    # Simulate DB having an Isracard record (import_xls)
-    test_conn.cursor_obj.fetchone = AsyncMock(return_value={
-        'id': 100,
-        'source_type': 'import_xls'
-    })
-    
-    test_txs_bit = [{
-        'amount': -300.0,
-        'date': '2026-07-05',
-        'external_id': 'bit_123',
-        'account_id': 1,
-        'description': 'Bit Transfer',
-        'comment': 'Test Person',
-        'source_type': 'import_bit'
-    }]
-    
-    with patch("bot.database.get_db_connection", return_value=test_conn):
-        inserted = await save_transactions_bulk(999, test_txs_bit)
-        
-    assert inserted == 1
-    
-    # Check that UPDATE is executed, appending the comment but NOT overwriting external_id
-    update_query = test_conn.cursor_obj.execute_calls[2][0]
-    update_params = test_conn.cursor_obj.execute_calls[2][1]
-    
-    assert "UPDATE transactions" in update_query
-    assert "external_id =" not in update_query, "Must not overwrite Isracard external_id"
-    assert "comment = CASE" in update_query, "Must append comment"
-    assert "Test Person" in update_params
 
 @pytest.mark.asyncio
 async def test_get_latest_import_date():

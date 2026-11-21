@@ -6,6 +6,10 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
+class BitCardAccountMissing(Exception):
+    """A Bit export needs the uploader's own card account for its card-paid lines."""
+
 def parse_leumi(file_path):
     """
     Parses Bank Leumi .xls file.
@@ -132,11 +136,13 @@ def parse_isracard(file_path, account_id=2):
                     
     return transactions
 
-def import_excel_file(file_path, hint=None):
+def import_excel_file(file_path, hint=None, bit_card_account_id: int | None = None):
     """
     Detects file type based on hint (from Telegram caption) or filename patterns.
     - FibiSave -> Bank Leumi (Debit)
     - Starts with 4 digits -> Isracard (Credit)
+    - Bit CSV -> card-paid lines go to `bit_card_account_id`, the uploader's own card.
+      Raises BitCardAccountMissing if it isn't known.
     """
     filename = os.path.basename(file_path)
     search_text = (filename + (hint if hint else "")).lower()
@@ -162,8 +168,9 @@ def import_excel_file(file_path, hint=None):
         
     # Bit CSV pattern
     if 'bit' in search_text and search_text.endswith('.csv'):
-        # Usually we would prompt for who's Bit it is, but here we pass target_account_id from caller (or default)
-        return parse_bit_csv(file_path, account_id=1) # The real caller (handler) should pass the correct account_id
+        if bit_card_account_id is None:
+            raise BitCardAccountMissing()
+        return parse_bit_csv(file_path, account_id=bit_card_account_id)
         
     logger.warning(f"Unknown file format: {filename} (hint: {hint})")
     return []
