@@ -277,3 +277,67 @@ async def test_names_with_wildcard_characters_are_compared_literally(
 
     [row] = await _rows(db)
     assert row["comment"] == "Alice, A_ice"
+
+
+# --- Re-uploads over rows left unmerged by the old code (#15) --------------------------
+
+async def _store_directly(db: psycopg.AsyncConnection, household: Household, line: dict[str, Any]) -> None:
+    """Insert a row as-is, without reconciliation, like the old code left Bit/statement pairs."""
+    await db.execute(
+        "INSERT INTO transactions (user_id, account_id, amount, description, comment, date, external_id, "
+        "source_type, status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'confirmed')",
+        (household.user_id, line["account_id"], line["amount"], line["description"], line.get("comment"),
+         line["date"], line["external_id"], line["source_type"]),
+    )
+    await db.commit()
+
+
+def _bank_line(household: Household) -> dict[str, Any]:
+    return statement_line(household.bank_account, 310, _at(DAY), "leumi_310", description="INCOMING TRANSFER")
+
+
+def _unrelated_bit_credit(household: Household) -> dict[str, Any]:
+    """A Bit balance credit with the same amount and date, on another account (transit)."""
+    return statement_line(household.transit_account, 310, _at(DAY), "bit_credit_310", source_type="import_bit",
+                          description="Transfer", comment="Bob")
+
+
+def _stored_card_line(household: Household) -> dict[str, Any]:
+    return statement_line(household.own_card_account, -300, _at(DAY), "isracard_300", description="BIT TRANSFER")
+
+
+def _stored_bit_card_line(household: Household) -> dict[str, Any]:
+    return statement_line(household.own_card_account, -300, _at(DAY), "bit_card_300", source_type="import_bit",
+                          description="Transfer", comment="Alice")
+
+
+@pytest.mark.parametrize(
+    ("stored", "reuploaded"),
+    [
+        # Production case: a bank line plus an unrelated Bit credit; the bank statement is re-uploaded.
+        ((_bank_line, _unrelated_bit_credit), _bank_line),
+        # A card line plus its Bit twin, both stored; the card statement is re-uploaded.
+        ((_stored_card_line, _stored_bit_card_line), _stored_card_line),
+        # The same pair; the Bit export is re-uploaded.
+        ((_stored_card_line, _stored_bit_card_line), _stored_bit_card_line),
+    ],
+    ids=["bank-statement-again", "card-statement-again", "bit-export-again"],
+)
+async def test_reuploading_an_already_stored_line_is_a_duplicate(
+    db: psycopg.AsyncConnection, household: Household, stored: Any, reuploaded: Any
+) -> None:
+    """
+    #15: a line whose external_id is already stored must be skipped before any matching.
+    It used to match the other stored row and try to take over its id (unique violation),
+    which failed the whole batch.
+    """
+    for make_line in stored:
+        await _store_directly(db, household, make_line(household))
+    before = await _rows(db)
+    unrelated = statement_line(household.bank_account, -999, _at(DAY, 20), "unrelated_line")
+
+    assert await save_transactions_bulk(household.user_id, [reuploaded(household), unrelated], db) == 1
+
+    rows = await _rows(db)
+    assert rows[:-1] == before                     # the stored rows are untouched
+    assert rows[-1]["external_id"] == "unrelated_line"
