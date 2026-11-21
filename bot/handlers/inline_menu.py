@@ -3,7 +3,6 @@ from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 from bot.database import get_db_connection
 from bot.handlers.common import check_access
-import psycopg
 from psycopg.rows import dict_row
 
 from bot.texts import get_text
@@ -115,12 +114,7 @@ async def inline_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             remaining_ids = [x for x in tx_ids_str.split(",") if x != tx_id]
             if remaining_ids:
                 new_ids_str = ",".join(remaining_ids)
-                # Redirect back to the main list
-                data = f"edit_main:{new_ids_str}:{page}"
-                # We can't easily trigger the branch without recursion, so let's just use callback_data
-                # and let the user click? No, let's just refresh the view.
-                # Actually, let's just call the edit_main logic or just send them back.
-                # For simplicity, let's show the success and a "Back to list" button.
+                # Offer a button back to the remaining records.
                 keyboard = [[InlineKeyboardButton("⬅️ " + get_text("close_menu", user_lang), callback_data=f"edit_main:{new_ids_str}:{page}")]]
                 await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(keyboard))
             else:
@@ -251,9 +245,7 @@ async def inline_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             # Go back to transaction actions
             keyboard = [[InlineKeyboardButton("⬅️ " + get_text("close_menu", user_lang), callback_data=f"edit_tx:{tx_id}:{tx_ids_str}:{page}")]]
             await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(keyboard))
-            
-        elif data == "close_all":
-            await query.edit_message_reply_markup(reply_markup=None)
+
             
     except Exception as e:
         logger.error(f"Error in inline menu: {e}")

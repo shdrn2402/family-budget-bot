@@ -59,7 +59,6 @@ async def uncategorized_handler(update: Update, context: ContextTypes.DEFAULT_TY
     if not await check_access(update):
         return
         
-    user_id = update.effective_user.id
     lang = update.effective_user.language_code or 'ru'
     
     # Let user know we are searching

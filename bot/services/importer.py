@@ -83,7 +83,6 @@ def parse_isracard(file_path, account_id=2):
     # 1. 'עסקאות למועד חיוב' (Charges for payment date)
     # 2. 'עסקאות בחיוב מחוץ למועד' (Immediate charges/foreign)
     
-    current_table_header_row = -1
     
     for i, row in raw_df.iterrows():
         row_list = [str(x) for x in row.tolist()]
@@ -130,8 +129,7 @@ def parse_isracard(file_path, account_id=2):
                         'account_id': account_id,
                         'source_type': 'import_xls'
                     })
-                except Exception as e:
-                    # logger.debug(f"Row {j} is not a valid transaction: {e}")
+                except Exception:
                     continue
                     
     return transactions
@@ -213,7 +211,7 @@ def parse_bit_csv(file_path, account_id):
                 date_obj = raw_date
             else:
                 date_obj = datetime.strptime(str(raw_date).strip().strip(','), '%d.%m.%y')
-        except Exception as e:
+        except Exception:
             logger.warning(f"Could not parse Bit date: {raw_date}")
             continue
             

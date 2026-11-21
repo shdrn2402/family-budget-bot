@@ -2,9 +2,7 @@ import logging
 from typing import List, Dict, Any, Optional
 import psycopg
 from psycopg.rows import dict_row
-from bot.services.llm import parse_natural_language
 from bot.database import get_account_type
-from bot.texts import get_text
 import zoneinfo
 from datetime import datetime, date, timedelta
 from bot.config import Config
@@ -109,10 +107,9 @@ async def parse_expense_message(text: str, user_id: int, conn: psycopg.AsyncConn
         # 4. Resolve Account ID
         account_id: Optional[int] = await resolve_account(account_alias, user_id, conn) if account_alias else None
         
-        # If an account was supposedly provided but we couldn't resolve it, this is likely natural language.
-        # We append an error to trigger LLM fallback.
+        # An account word was given but it isn't a known alias.
         if account_alias and not account_id:
-            results.append({'original': part, 'error': 'account_not_found_fallback'})
+            results.append({'original': part, 'error': 'unknown_account', 'account_alias': account_alias})
             continue
         
         # 5. Resolve Category ID
@@ -169,55 +166,12 @@ async def resolve_category_from_alias(item_name: str, conn: psycopg.AsyncConnect
 
 async def process_expense_text(text: str, user_id: int, conn: psycopg.AsyncConnection) -> List[Dict[str, Any]]:
     """
-    Smart router: tries fast regex-based parser first.
-    If it encounters any formatting errors, falls back to LLM.
+    Parse a manual entry message. All or nothing: if any part can't be read, only the
+    parts with errors are returned, so nothing is saved and the user can resend the message.
     """
-    # 1. Try fast parser
-    fast_results = await parse_expense_message(text, user_id, conn)
-    
-    # Check if fast parser results are complete (have amounts)
-    # Re-resolving IDs with family context if necessary
-    if not any('error' in item for item in fast_results):
-        for item in fast_results:
-            if not item.get('category_id'):
-                item['category_id'] = await resolve_category_from_alias(item['item_name'], conn)
-            resolved_acc = await resolve_account(item['account_alias'], user_id, conn) if item.get('account_alias') else None
-            item['account_id'] = resolved_acc
-        return fast_results
-
-    # 2. Fallback to LLM
-    logger.info("Falling back to LLM for: %s", text)
-    llm_items = await parse_natural_language(text)
-    
-    # Resolve aliases for LLM results
-    results = []
-    for item in llm_items:
-        if 'error' in item:
-            results.append(item)
-            continue
-            
-        account_alias = item.get('account_alias', '').strip().lower()
-        item_name = item.get('item_name', '').strip().lower()
-        amount = item.get('amount', 0.0)
-        comment = item.get('comment', None)
-        
-        resolved_acc = await resolve_account(account_alias, user_id, conn) if account_alias else None
-        account_id = resolved_acc
-        category_id = await resolve_category_from_alias(item_name, conn)
-        tx_date = item.get('date')
-        
-        results.append({
-            'original': text,
-            'item_name': item_name,
-            'amount': amount,
-            'account_id': account_id,
-            'account_alias': account_alias,
-            'category_id': category_id,
-            'comment': comment,
-            'date': tx_date
-        })
-        
-    return results
+    results = await parse_expense_message(text, user_id, conn)
+    errors = [item for item in results if 'error' in item]
+    return errors or results
 
 async def save_expense_item(item: dict, user_id: int, lang: str, conn: psycopg.AsyncConnection, source_type: str) -> dict:
     """
