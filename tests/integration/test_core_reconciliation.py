@@ -6,8 +6,7 @@ Bit rows, card rows). Part of issue #11.
 Matching rule today: same amount, date within ±3 days, and the existing row is either
 pending or from the "other" import source (Bit <-> card/bank statement).
 
-Tests named test_current_behaviour_... record known problems on purpose. Tests marked
-xfail(strict=True) describe intended behaviour that's currently broken (see their reason).
+Tests named test_current_behaviour_... record known problems on purpose.
 """
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -146,9 +145,6 @@ async def test_current_behaviour_matching_ignores_the_account(
 
 # --- Bit rows <-> card/bank statement rows --------------------------------------------
 
-BIT_RECONCILIATION_BUG = "#12: Bit reconciliation SQL has unescaped '%' and fails the whole batch"
-
-
 async def _existing_card_line(db: psycopg.AsyncConnection, household: Household) -> None:
     assert await save_transactions_bulk(household.user_id, [
         statement_line(household.own_card_account, -80, _at(DAY), "isracard_bit", description="BIT TRANSFER"),
@@ -184,30 +180,23 @@ def _card_line(household: Household) -> dict[str, Any]:
     ],
     ids=["bit-after-card", "card-after-bit", "bit-after-pending"],
 )
-async def test_current_behaviour_a_matching_bit_row_aborts_the_whole_batch(
+async def test_a_bit_match_merges_and_the_rest_of_the_batch_is_saved(
     db: psycopg.AsyncConnection, household: Household, existing: Any, incoming: Any
 ) -> None:
-    """
-    Known problem (#12): whenever a Bit row and a statement row match, the UPDATE fails
-    (unescaped '%' in the SQL, rejected by psycopg before it reaches the server). The error
-    is swallowed and 0 is returned. The connection is left with an open, uncommitted
-    transaction that still holds the FOR UPDATE lock on the matched row, and no line of the
-    batch is saved, not even unrelated ones.
-    """
+    """Regression for #12: a Bit match used to abort the whole batch (unescaped '%' in the SQL)."""
     await existing(db, household)
-    before = await _rows(db)
     unrelated = statement_line(household.bank_account, -999, _at(DAY, 20), "unrelated_line")
 
-    assert await save_transactions_bulk(household.user_id, [incoming(household), unrelated], db) == 0
-    assert db.info.transaction_status == pq.TransactionStatus.INTRANS
+    assert await save_transactions_bulk(household.user_id, [incoming(household), unrelated], db) == 2
 
-    await db.rollback()
-    assert await _rows(db) == before
+    assert db.info.transaction_status == pq.TransactionStatus.IDLE  # committed, no open transaction
+    rows = await _rows(db)
+    assert len(rows) == 2  # merged into the existing row, plus the unrelated line
+    assert rows[1]["external_id"] == "unrelated_line"
 
 
-@pytest.mark.xfail(reason=BIT_RECONCILIATION_BUG, strict=True)
 async def test_bit_line_enriches_an_existing_card_line(db: psycopg.AsyncConnection, household: Household) -> None:
-    """Intended: card statement first, Bit export second. The card row keeps its id and gains the counterparty."""
+    """Card statement first, Bit export second: the card row keeps its id and gains the counterparty."""
     await _existing_card_line(db, household)
 
     assert await save_transactions_bulk(household.user_id, [_bit_line(household)], db) == 1
@@ -218,9 +207,8 @@ async def test_bit_line_enriches_an_existing_card_line(db: psycopg.AsyncConnecti
     )
 
 
-@pytest.mark.xfail(reason=BIT_RECONCILIATION_BUG, strict=True)
 async def test_card_line_takes_over_an_existing_bit_line(db: psycopg.AsyncConnection, household: Household) -> None:
-    """Intended: Bit export first, card statement second. The card statement's id becomes authoritative."""
+    """Bit export first, card statement second: the card statement's id becomes authoritative."""
     await _existing_bit_line(db, household)
 
     assert await save_transactions_bulk(household.user_id, [_card_line(household)], db) == 1
@@ -229,3 +217,63 @@ async def test_card_line_takes_over_an_existing_bit_line(db: psycopg.AsyncConnec
     assert (row["external_id"], row["source_type"], row["description"], row["comment"]) == (
         "isracard_new", "import_xls", "Transfer", "Alice, BIT TRANSFER"
     )
+
+
+async def test_bit_line_confirms_a_pending_manual_entry(db: psycopg.AsyncConnection, household: Household) -> None:
+    """
+    Decided in #12: a Bit row confirms a matching pending manual entry, like statement lines do,
+    and the counterparty is kept in the comment next to the original text.
+    """
+    pending_id = await _pending_manual_entry(db, household, account_id=household.transit_account, amount=80)
+
+    assert await save_transactions_bulk(household.user_id, [_bit_line(household)], db) == 1
+
+    [row] = await _rows(db)
+    assert {k: row[k] for k in ("id", "status", "external_id", "source_type", "description", "comment")} == {
+        "id": pending_id,
+        "status": "confirmed",
+        "external_id": "bit_new",
+        "source_type": "import_bit",
+        "description": "Transfer",
+        "comment": "lunch, Alice",
+    }
+
+
+async def test_card_line_later_takes_over_a_bit_confirmed_entry(
+    db: psycopg.AsyncConnection, household: Household
+) -> None:
+    """Manual entry, then the Bit export, then the card statement: still one row, card id wins."""
+    await _pending_manual_entry(db, household, account_id=household.transit_account, amount=80)
+    await save_transactions_bulk(household.user_id, [_bit_line(household)], db)
+
+    assert await save_transactions_bulk(household.user_id, [_card_line(household)], db) == 1
+
+    [row] = await _rows(db)
+    assert (row["status"], row["external_id"], row["source_type"]) == ("confirmed", "isracard_new", "import_xls")
+
+
+async def test_reimporting_a_merged_bit_line_counts_as_a_duplicate(
+    db: psycopg.AsyncConnection, household: Household
+) -> None:
+    await _existing_card_line(db, household)
+    assert await save_transactions_bulk(household.user_id, [_bit_line(household)], db) == 1
+
+    assert await save_transactions_bulk(household.user_id, [_bit_line(household)], db) == 0
+
+    [row] = await _rows(db)
+    assert row["comment"] == "Alice"
+
+
+async def test_names_with_wildcard_characters_are_compared_literally(
+    db: psycopg.AsyncConnection, household: Household
+) -> None:
+    """'A_ice' is a different name from 'Alice', although LIKE '%A_ice%' would match it."""
+    await save_transactions_bulk(household.user_id, [
+        statement_line(household.own_card_account, -80, _at(DAY), "isracard_wild", comment="Alice"),
+    ], db)
+    bit_line = {**_bit_line(household), "comment": "A_ice"}
+
+    assert await save_transactions_bulk(household.user_id, [bit_line], db) == 1
+
+    [row] = await _rows(db)
+    assert row["comment"] == "Alice, A_ice"

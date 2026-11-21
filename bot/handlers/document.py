@@ -4,8 +4,14 @@ import asyncio
 from datetime import datetime
 from telegram import Update, Message
 from telegram.ext import ContextTypes
-from bot.services.importer import import_excel_file
-from bot.database import save_transactions_bulk, get_db_connection, get_all_item_aliases, get_latest_import_date
+from bot.services.importer import BitCardAccountMissing, import_excel_file
+from bot.database import (
+    get_all_item_aliases,
+    get_db_connection,
+    get_latest_import_date,
+    get_user_card_account,
+    save_transactions_bulk,
+)
 from bot.services.categorizer import auto_categorize
 from bot.handlers.common import check_access
 from bot.texts import get_text
@@ -139,6 +145,10 @@ async def process_batch(
     all_transactions = []
     failed_files: list[tuple[str, str]] = []
 
+    # Card-paid lines in a Bit export belong to the uploader's own card.
+    card_account = await get_user_card_account(user_id)
+    bit_card_account_id = card_account["id"] if card_account else None
+
     # 1. Download and parse all documents
     for doc in documents:
         file_id = doc['file_id']
@@ -152,7 +162,7 @@ async def process_batch(
             await file.download_to_drive(file_path)
             
             # Parse file
-            transactions = import_excel_file(file_path, hint=caption)
+            transactions = import_excel_file(file_path, hint=caption, bit_card_account_id=bit_card_account_id)
             
             if transactions:
                 # Pre-filter for Bit statements based on latest DB date
@@ -172,6 +182,8 @@ async def process_batch(
             else:
                 all_transactions.extend(transactions)
                 
+        except BitCardAccountMissing:
+            failed_files.append((file_name, get_text("import_bit_no_card", lang)))
         except Exception as parse_err:
             logger.error(f"Error parsing file {file_name}: {parse_err}", exc_info=True)
             failed_files.append((file_name, str(parse_err)))
