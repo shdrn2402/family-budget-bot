@@ -3,8 +3,10 @@ Pins the current reconciliation behaviour of save_transactions_bulk (bot/databas
 how imported statement rows are matched with existing rows (pending manual entries,
 Bit rows, card rows). Part of issue #11.
 
-Matching rule today: same amount, date within ±3 days, and the existing row is either
-pending or from the "other" import source (Bit <-> card/bank statement).
+Matching rule: same account, same amount, date within ±3 days, and the existing row is
+either pending or from the "other" import source (Bit <-> card/bank statement). One exception
+(#17): a pending entry on a transit account ("paid with Bit") may be confirmed by a Bit line on
+any account. Among candidates: same account first, then the closest date, then the oldest row.
 
 Tests named test_current_behaviour_... record known problems on purpose.
 """
@@ -123,24 +125,68 @@ async def test_no_match_for_a_different_amount(db: psycopg.AsyncConnection, hous
     assert len(await _rows(db)) == 2
 
 
-async def test_current_behaviour_matching_ignores_the_account(
+async def test_statement_line_on_another_card_does_not_confirm_a_pending_entry(
     db: psycopg.AsyncConnection, household: Household
 ) -> None:
-    """
-    Known problem: the account isn't part of the match. A statement line on another family
-    member's card confirms this user's pending entry and moves it to that card, while
-    user_id stays the original user.
-    """
-    await _pending_manual_entry(db, household, account_id=household.own_card_account)
+    """#17: the account is part of the match, so another family member's card line is its own row."""
+    pending_id = await _pending_manual_entry(db, household, account_id=household.own_card_account)
 
     await save_transactions_bulk(household.other_user_id, [
         statement_line(household.other_card_account, -50, _at(DAY), "isracard_other_card"),
     ], db)
 
-    [row] = await _rows(db)
-    assert (row["account_id"], row["user_id"], row["status"]) == (
-        household.other_card_account, household.user_id, "confirmed"
-    )
+    rows = await _rows(db)
+    assert [(r["id"] == pending_id, r["account_id"], r["user_id"], r["status"]) for r in rows] == [
+        (True, household.own_card_account, household.user_id, "pending"),
+        (False, household.other_card_account, household.other_user_id, "confirmed"),
+    ]
+
+
+async def test_card_statement_line_does_not_confirm_a_pending_transit_entry(
+    db: psycopg.AsyncConnection, household: Household
+) -> None:
+    """Only a Bit line may confirm a pending "paid with Bit" entry from another account."""
+    await _pending_manual_entry(db, household, account_id=household.transit_account, amount=80)
+
+    await save_transactions_bulk(household.user_id, [
+        statement_line(household.own_card_account, -80, _at(DAY), "isracard_card_line"),
+    ], db)
+
+    rows = await _rows(db)
+    assert [(r["account_id"], r["status"]) for r in rows] == [
+        (household.transit_account, "pending"),
+        (household.own_card_account, "confirmed"),
+    ]
+
+
+async def test_closest_date_wins_among_candidates(db: psycopg.AsyncConnection, household: Household) -> None:
+    await _pending_manual_entry(db, household, account_id=household.own_card_account, day=DAY)
+    closer = await _pending_manual_entry(db, household, account_id=household.own_card_account,
+                                         day=DAY + timedelta(days=2))
+
+    await save_transactions_bulk(household.user_id, [
+        statement_line(household.own_card_account, -50, _at(DAY, 3), "isracard_closest"),
+    ], db)
+
+    rows = await _rows(db)
+    assert [(r["id"] == closer, r["status"]) for r in rows] == [(False, "pending"), (True, "confirmed")]
+
+
+async def test_oldest_row_wins_among_equally_close_candidates(
+    db: psycopg.AsyncConnection, household: Household
+) -> None:
+    older = await _pending_manual_entry(db, household, account_id=household.own_card_account)
+    await _pending_manual_entry(db, household, account_id=household.own_card_account)
+    # Make the newer row come first in the heap, so an unordered scan would pick it.
+    await db.execute("UPDATE transactions SET comment = 'touched' WHERE id = %s", (older,))
+    await db.commit()
+
+    await save_transactions_bulk(household.user_id, [
+        statement_line(household.own_card_account, -50, _at(DAY), "isracard_oldest"),
+    ], db)
+
+    rows = await _rows(db)
+    assert [(r["id"] == older, r["status"]) for r in rows] == [(True, "confirmed"), (False, "pending")]
 
 
 # --- Bit rows <-> card/bank statement rows --------------------------------------------
@@ -153,7 +199,7 @@ async def _existing_card_line(db: psycopg.AsyncConnection, household: Household)
 
 async def _existing_bit_line(db: psycopg.AsyncConnection, household: Household) -> None:
     assert await save_transactions_bulk(household.user_id, [
-        statement_line(household.transit_account, -80, _at(DAY), "bit_existing", source_type="import_bit",
+        statement_line(household.own_card_account, -80, _at(DAY), "bit_existing", source_type="import_bit",
                        description="Transfer", comment="Alice"),
     ], db) == 1
 
@@ -163,7 +209,8 @@ async def _existing_pending_entry(db: psycopg.AsyncConnection, household: Househ
 
 
 def _bit_line(household: Household) -> dict[str, Any]:
-    return statement_line(household.transit_account, -80, _at(DAY, 1), "bit_new", source_type="import_bit",
+    """A Bit payment made with the user's card (the parser puts it on that card's account)."""
+    return statement_line(household.own_card_account, -80, _at(DAY, 1), "bit_new", source_type="import_bit",
                           description="Transfer", comment="Alice")
 
 
@@ -222,15 +269,18 @@ async def test_card_line_takes_over_an_existing_bit_line(db: psycopg.AsyncConnec
 async def test_bit_line_confirms_a_pending_manual_entry(db: psycopg.AsyncConnection, household: Household) -> None:
     """
     Decided in #12: a Bit row confirms a matching pending manual entry, like statement lines do,
-    and the counterparty is kept in the comment next to the original text.
+    and the counterparty is kept in the comment next to the original text. #17: a "paid with Bit"
+    entry on the transit account moves to the account that actually paid.
     """
     pending_id = await _pending_manual_entry(db, household, account_id=household.transit_account, amount=80)
 
     assert await save_transactions_bulk(household.user_id, [_bit_line(household)], db) == 1
 
     [row] = await _rows(db)
-    assert {k: row[k] for k in ("id", "status", "external_id", "source_type", "description", "comment")} == {
+    assert {k: row[k] for k in ("id", "account_id", "status", "external_id", "source_type", "description",
+                                "comment")} == {
         "id": pending_id,
+        "account_id": household.own_card_account,
         "status": "confirmed",
         "external_id": "bit_new",
         "source_type": "import_bit",
@@ -341,3 +391,87 @@ async def test_reuploading_an_already_stored_line_is_a_duplicate(
     rows = await _rows(db)
     assert rows[:-1] == before                     # the stored rows are untouched
     assert rows[-1]["external_id"] == "unrelated_line"
+
+
+# --- Lines on different accounts are never merged (#17) -------------------------------
+
+async def test_same_account_pending_entry_is_preferred_over_a_transit_one(
+    db: psycopg.AsyncConnection, household: Household
+) -> None:
+    await _pending_manual_entry(db, household, account_id=household.transit_account, amount=80)
+    on_card = await _pending_manual_entry(db, household, account_id=household.own_card_account, amount=80)
+
+    await save_transactions_bulk(household.user_id, [_bit_line(household)], db)
+
+    rows = await _rows(db)
+    assert [(r["id"] == on_card, r["account_id"], r["status"]) for r in rows] == [
+        (False, household.transit_account, "pending"),
+        (True, household.own_card_account, "confirmed"),
+    ]
+
+
+async def test_bit_balance_line_does_not_confirm_a_pending_card_entry(
+    db: psycopg.AsyncConnection, household: Household
+) -> None:
+    await _pending_manual_entry(db, household, account_id=household.own_card_account, amount=80)
+    from_balance = {**_bit_line(household), "account_id": household.transit_account}
+
+    await save_transactions_bulk(household.user_id, [from_balance], db)
+
+    rows = await _rows(db)
+    assert [(r["account_id"], r["status"], r["source_type"]) for r in rows] == [
+        (household.own_card_account, "pending", "manual_text"),
+        (household.transit_account, "confirmed", "import_bit"),
+    ]
+
+
+async def test_bank_line_does_not_take_over_a_bit_balance_row(
+    db: psycopg.AsyncConnection, household: Household
+) -> None:
+    """A Bit balance credit and a bank credit of the same amount are two events: both are kept."""
+    await save_transactions_bulk(household.user_id, [
+        statement_line(household.transit_account, 310, _at(DAY), "bit_balance_credit", source_type="import_bit",
+                       description="Transfer", comment="Alice"),
+    ], db)
+
+    await save_transactions_bulk(household.user_id, [
+        statement_line(household.bank_account, 310, _at(DAY, 1), "leumi_credit"),
+    ], db)
+
+    rows = await _rows(db)
+    assert [(r["account_id"], r["external_id"], r["source_type"]) for r in rows] == [
+        (household.transit_account, "bit_balance_credit", "import_bit"),
+        (household.bank_account, "leumi_credit", "import_xls"),
+    ]
+
+
+async def test_bit_card_line_does_not_enrich_a_bank_row(db: psycopg.AsyncConnection, household: Household) -> None:
+    await save_transactions_bulk(household.user_id, [
+        statement_line(household.bank_account, -80, _at(DAY), "leumi_debit"),
+    ], db)
+
+    assert await save_transactions_bulk(household.user_id, [_bit_line(household)], db) == 1
+
+    rows = await _rows(db)
+    assert [(r["account_id"], r["external_id"], r["comment"]) for r in rows] == [
+        (household.bank_account, "leumi_debit", None),
+        (household.own_card_account, "bit_new", "Alice"),
+    ]
+
+
+async def test_cash_offset_is_not_taken_over_by_a_transit_bit_row(
+    db: psycopg.AsyncConnection, household: Household
+) -> None:
+    await save_transactions_bulk(household.user_id, [
+        statement_line(household.transit_account, 200, _at(DAY), "bit_balance_200", source_type="import_bit"),
+    ], db)
+
+    await save_transactions_bulk(household.user_id, [
+        statement_line(household.cash_account, 200, _at(DAY), "leumi_atm_offset"),
+    ], db)
+
+    rows = await _rows(db)
+    assert [(r["account_id"], r["external_id"]) for r in rows] == [
+        (household.transit_account, "bit_balance_200"),
+        (household.cash_account, "leumi_atm_offset"),
+    ]

@@ -163,8 +163,11 @@ async def save_transactions_bulk(user_id: int, transactions: list, conn: psycopg
     """
     Save imported statement rows, reconciling them with existing rows.
 
-    A row matches an existing one with the same amount, within ±3 days, that is either pending
-    or comes from the other import source (Bit <-> card/bank statement):
+    A row matches an existing one on the same account, with the same amount, within ±3 days,
+    that is either pending or comes from the other import source (Bit <-> card/bank statement).
+    Exception: a pending entry on a transit account ("paid with Bit") may be confirmed by a Bit
+    row on any account, and moves to that account. Among several candidates, a same-account row
+    comes first, then the closest date, then the oldest row (#17). Then:
     - existing row is pending (manual entry): it's confirmed with the imported details;
     - importing Bit, existing card/bank row: the counterparty is appended to its comment;
     - importing card/bank, existing Bit row: its external_id and source are taken over.
@@ -197,17 +200,23 @@ async def save_transactions_bulk(user_id: int, transactions: list, conn: psycopg
                 current_source = tx.get('source_type', 'import_xls')
                 target_sources = ['import_xls'] if current_source == 'import_bit' else ['import_bit']
 
-                # Find a pending manual entry or a row from the other import source (ignoring account_id)
+                # Find a pending manual entry or a row from the other import source on the same
+                # account, or a pending "paid with Bit" entry on transit for an incoming Bit row.
                 await cur.execute(
                     """
                     SELECT id, source_type, status FROM transactions
                     WHERE amount = %s
                       AND (status = 'pending' OR source_type = ANY(%s))
                       AND date BETWEEN %s::date - INTERVAL '3 days' AND %s::date + INTERVAL '3 days'
+                      AND (account_id = %s
+                           OR (%s AND status = 'pending'
+                               AND account_id IN (SELECT id FROM accounts WHERE type = 'transit')))
+                    ORDER BY account_id <> %s, abs(date::date - %s::date), id
                     LIMIT 1
                     FOR UPDATE SKIP LOCKED;
                     """,
-                    (tx['amount'], target_sources, tx['date'], tx['date'])
+                    (tx['amount'], target_sources, tx['date'], tx['date'],
+                     tx['account_id'], current_source == 'import_bit', tx['account_id'], tx['date'])
                 )
                 match = await cur.fetchone()
 
