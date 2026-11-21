@@ -4,11 +4,10 @@
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![Package Manager: uv](https://img.shields.io/badge/package--manager-uv-brightgreen)](https://docs.astral.sh/uv/)
 [![Database: PostgreSQL 18](https://img.shields.io/badge/database-postgresql--18-blue)](https://www.postgresql.org/)
-[![AI: Gemini 1.5 Flash](https://img.shields.io/badge/AI-Gemini%201.5%20Flash-orange)](https://ai.google.dev/)
 [![Security: Hardened](https://img.shields.io/badge/DB_Access-Direct%20%2F%20SSH%20Tunnel-informational)](#-tech-stack--port-mapping)
 [![Status: In Progress](https://img.shields.io/badge/Status-In%20Progress-yellow)](#-roadmap--backlog)
 
-**Family Budget Bot** is a private, bilingual (English/Russian) Telegram bot designed for family finance tracking. It combines LLM-powered natural language processing, voice transcription, and structured database synchronization.
+**Family Budget Bot** is a private, bilingual (English/Russian) Telegram bot designed for family finance tracking. It records expenses from short text messages and imports bank, credit card and Bit statements into PostgreSQL, reconciling them with what was entered by hand.
 
 ---
 
@@ -16,20 +15,17 @@
 
 ```mermaid
 graph TD
-    TelegramUser[Telegram User] <--> |Commands / Text / Voice / Files| Bot[Telegram Budget Bot]
-    Bot <--> |Gemini API| Gemini[Google Gemini 1.5 Flash]
+    TelegramUser[Telegram User] <--> |Commands / Text / Files| Bot[Telegram Budget Bot]
     Bot <--> |psycopg3 / Port 5432| DB[(PostgreSQL 18)]
     DBClient[Local Client: DBeaver] -.-> |Direct / SSH Tunnel| DB
     DB -.-> |Automatic db_dump| Backup[./backups/]
-    DBTrigger[PostgreSQL Trigger] -.-> |Sync Alias Updates| DB
 ```
 
 ---
 
 ## ✨ Core Features
 
-*   🎙 **Voice-to-Text Parsing:** Records expenses from voice messages by transcribing audio via Gemini 1.5 Flash, then maps details into structured transactions (item, account, amount, category).
-*   💬 **Smart Natural Language Entry:** Processes free-form text (e.g., *"spent 500 on coffee yesterday in cash and 2k on fuel with credit card"*) to log multiple transactions at once.
+*   💬 **Quick Text Entry:** One message can log several expenses in the format `item account amount [comment]`, separated by commas (e.g. *"coffee cash 15, bus card 6 yesterday"*). Account words are aliases from `account_aliases`; *"yesterday"/"today"* set the date. If any part can't be read, nothing is saved and the bot replies with the expected format.
 *   ⏳ **Debounced Batch Statement Loading:** Groups multiple statement uploads (Excel/XLSX) sent in a single batch, processes them in one operation, and outputs a single aggregated report to avoid message spam.
 *   📊 **Bit Statement Import & Reconciliation:** Parses Bit CSV exports, matches/enriches existing bank and credit card statement transactions, and handles direct card expenses and transit balance movements without duplication.
 *   🗃 **Alias Learning:** Changing a transaction's category from the bot's menu saves the merchant pattern (description + comment) to `item_aliases` and applies it to matching uncategorized transactions, so future statements are categorized automatically.
@@ -45,7 +41,6 @@ graph TD
 | **Bot Ingestion** | Python 3.12 + `uv` | *N/A (Stateless)* | Telegram webhook/polling daemon |
 | **Database** | PostgreSQL 18 | `5433:5432` | Primary transactional storage |
 | **DB Administration** | DBeaver / CLI | *Via SSH Tunnel / Host Port* | Direct administration without exposed web GUIs |
-| **LLM Engine** | Gemini 1.5 Flash | *API* | Voice transcription and entity extraction |
 
 ---
 
@@ -84,7 +79,6 @@ DB_PORT=5432
 DB_NAME="your_db_name"
 DB_USER="your_db_user"
 DB_PASSWORD="your_db_password"
-GEMINI_API_KEY="your_gemini_api_key"
 ```
 
 ### 2. Running Locally with Docker

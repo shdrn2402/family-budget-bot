@@ -6,7 +6,6 @@ from bot.texts import get_text
 from bot.database import (
     check_user_exists, 
     register_user, 
-    get_user_info, 
     get_user_linked_account, 
     get_unlinked_accounts, 
     link_user_to_account,
@@ -182,16 +181,3 @@ async def link_account_callback_handler(update: Update, context: ContextTypes.DE
             "Please run /start again."
         )
         await query.edit_message_text(reply_text)
-
-async def echo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Echo the user message back for testing purposes."""
-    if not await check_access(update) or not update.message or not update.effective_user:
-        return
-        
-    text: str = update.message.text or ""
-    logger.info(f"Received message from {update.effective_user.id}: {text}")
-    
-    lang_code: str | None = update.effective_user.language_code
-    reply_text: str = get_text("echo_reply", lang_code, text=text)
-    
-    await update.message.reply_text(reply_text)

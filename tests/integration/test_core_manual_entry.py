@@ -1,6 +1,6 @@
 """
-Pins the current behaviour of manual text entry (fast parser path, no LLM) against a real
-database: bot/services/expense.py. Part of issue #11.
+Pins the current behaviour of manual text entry (the fast parser; the LLM fallback was
+removed in #20) against a real database: bot/services/expense.py. Part of issue #11.
 
 Tests named test_current_behaviour_... record known problems on purpose. A fix should
 update them deliberately.
@@ -24,8 +24,6 @@ from tests.integration.conftest import (
     CATEGORY_SALARY,
     Household,
 )
-
-pytestmark = pytest.mark.usefixtures("no_llm")
 
 
 async def _transaction(db: psycopg.AsyncConnection, transaction_id: int) -> dict[str, Any]:
@@ -106,19 +104,18 @@ async def test_item_and_amount_without_account(db: psycopg.AsyncConnection, hous
     assert "error" not in item
 
 
-async def test_unknown_account_word_is_marked_for_llm_fallback(
-    db: psycopg.AsyncConnection, household: Household
-) -> None:
+async def test_unknown_account_word_is_an_error(db: psycopg.AsyncConnection, household: Household) -> None:
     [item] = await parse_expense_message("testcoffee nosuchaccount 25", household.user_id, db)
-    assert item == {"original": "testcoffee nosuchaccount 25", "error": "account_not_found_fallback"}
+    assert item == {"original": "testcoffee nosuchaccount 25", "error": "unknown_account",
+                    "account_alias": "nosuchaccount"}
 
 
-async def test_any_parse_error_routes_the_whole_text_to_the_llm(
-    db: psycopg.AsyncConnection, household: Household
-) -> None:
-    """The no_llm guard turns the LLM call into an error, which proves the routing."""
-    with pytest.raises(AssertionError, match="LLM fallback was called"):
-        await process_expense_text("testcoffee testcash 25, testcoffee nosuchaccount 5", household.user_id, db)
+async def test_any_parse_error_returns_only_the_errors(db: psycopg.AsyncConnection, household: Household) -> None:
+    """All or nothing: if one part can't be read, no part is returned for saving (#20)."""
+    items = await process_expense_text("testcoffee testcash 25, testcoffee nosuchaccount 5", household.user_id, db)
+
+    assert items == [{"original": "testcoffee nosuchaccount 5", "error": "unknown_account",
+                      "account_alias": "nosuchaccount"}]
 
 
 async def test_unparseable_parts_are_marked(db: psycopg.AsyncConnection, household: Household) -> None:
@@ -131,8 +128,8 @@ async def test_current_behaviour_decimal_comma_splits_the_message(
 ) -> None:
     """
     Known problem: the message is split on commas before amounts are parsed, so "150,5"
-    becomes two parts. The trailing "5" fails to parse, which sends the whole message to the
-    LLM fallback (process_expense_text) even though it was in the fast-parser format.
+    becomes two parts. The trailing "5" fails to parse, so the whole message is refused even
+    though it was in the fast-parser format.
     """
     items = await parse_expense_message("testcoffee testcash 150,5", household.user_id, db)
 

@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 async def expense_message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    Unified text message handler. Routes to analytics or saves expenses.
+    Text message handler: renames/re-prices a transaction (reply to the bot) or saves expenses.
     """
     if not await check_access(update):
         return
@@ -64,12 +64,23 @@ async def expense_message_handler(update: Update, context: ContextTypes.DEFAULT_
 
     # --- EXPENSE PROCESSING ---
     async with await get_db_connection() as conn:
-        from bot.database import get_user_info
-        user_info = await get_user_info(user_id, conn)
         parsed_items = await process_expense_text(text, user_id, conn)
-        
+
         if not parsed_items:
-            # If nothing was parsed and it didn't look like a question, maybe show a hint
+            return
+
+        parse_errors = [item for item in parsed_items if 'error' in item]
+        if parse_errors:
+            # Nothing is saved; say what couldn't be read and how to write it.
+            lines = []
+            for item in parse_errors:
+                original = item.get('original', text)
+                if item['error'] == 'unknown_account':
+                    lines.append(get_text("account_not_found", lang, alias=item.get('account_alias', ''),
+                                          original=original))
+                else:
+                    lines.append(get_text("item_parse_error", lang, original=original))
+            await update.message.reply_text("\n".join(lines) + "\n\n" + get_text("parse_error", lang))
             return
 
         responses = []
@@ -78,10 +89,6 @@ async def expense_message_handler(update: Update, context: ContextTypes.DEFAULT_
 
         async with conn.cursor() as cur:
             for item in parsed_items:
-                if 'error' in item:
-                    responses.append(f"❌ Error: {item['error']} for '{item.get('original', text)}'")
-                    continue
-                
                 from bot.services.expense import save_expense_item
                 save_res = await save_expense_item(item, user_id, lang, conn, 'manual_text')
                 
