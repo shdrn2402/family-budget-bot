@@ -7,9 +7,10 @@ from datetime import datetime
 from typing import Any
 
 import psycopg
+import pytest
 from psycopg import pq
 
-from bot.database import get_latest_import_date, save_transactions_bulk
+from bot.database import get_latest_import_date, get_user_card_account, save_transactions_bulk
 from tests.integration.conftest import CATEGORY_CASH_WITHDRAWAL, CATEGORY_RESTAURANTS, Household
 
 
@@ -112,21 +113,27 @@ async def test_latest_import_date_per_source(db: psycopg.AsyncConnection, househ
     assert latest is not None and latest.date().isoformat() == "2026-09-20"
 
 
-async def test_current_behaviour_database_errors_are_reported_as_zero_inserted(
+async def test_database_errors_are_raised_and_rolled_back(
     db: psycopg.AsyncConnection, household: Household
 ) -> None:
     """
-    Known problem: any database error is caught and returned as 0 inserted, so the import
-    report shows "duplicates skipped" instead of an error. The caller's connection is also
-    left in a failed transaction (no rollback), and nothing from the batch is saved.
+    Fixed in #12: errors used to be returned as "0 inserted", so the import report said
+    "duplicates". They now propagate, after rolling back, so nothing from the batch is saved.
     """
     lines = [
         statement_line(household.own_card_account, -10, datetime(2026, 10, 3), "isracard_ok"),
         statement_line(household.own_card_account, -20, datetime(2026, 10, 4), "bad_1", source_type="not_a_source"),
     ]
 
-    assert await save_transactions_bulk(household.user_id, lines, db) == 0
-    assert db.info.transaction_status == pq.TransactionStatus.INERROR
+    with pytest.raises(psycopg.errors.CheckViolation):
+        await save_transactions_bulk(household.user_id, lines, db)
 
-    await db.rollback()
+    assert db.info.transaction_status == pq.TransactionStatus.IDLE
     assert await _rows(db) == []
+
+
+async def test_uploaders_own_card_account(db: psycopg.AsyncConnection, household: Household) -> None:
+    """Used for card-paid lines in Bit exports (#12), instead of a hard-coded account."""
+    assert (await get_user_card_account(household.user_id, db))["id"] == household.own_card_account
+    assert (await get_user_card_account(household.other_user_id, db))["id"] == household.other_card_account
+    assert await get_user_card_account(424242, db) is None
