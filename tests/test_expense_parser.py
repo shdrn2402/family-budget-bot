@@ -1,5 +1,5 @@
 import pytest
-from datetime import date, timedelta
+from datetime import date
 from unittest.mock import AsyncMock, patch, MagicMock
 
 from bot.services.expense import parse_expense_message, resolve_amount_sign

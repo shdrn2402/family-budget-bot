@@ -50,7 +50,7 @@ async def test_document_handler_success():
          patch("bot.handlers.document.get_db_connection", side_effect=mock_get_db_conn), \
          patch("bot.handlers.document.get_all_item_aliases", new_callable=AsyncMock) as mock_aliases, \
          patch("bot.handlers.document.get_user_card_account", new_callable=AsyncMock, return_value={"id": 7}), \
-         patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+         patch("asyncio.sleep", new_callable=AsyncMock):
          
         # Mock parsing returning 1 transaction
         mock_import.return_value = [{'date': '2026-05-06', 'amount': -10, 'description': 'Test', 'account_id': 2}]
@@ -119,7 +119,7 @@ async def test_document_handler_csv_success():
          patch("bot.handlers.document.get_db_connection", side_effect=mock_get_db_conn), \
          patch("bot.handlers.document.get_all_item_aliases", new_callable=AsyncMock) as mock_aliases, \
          patch("bot.handlers.document.get_user_card_account", new_callable=AsyncMock, return_value={"id": 7}), \
-         patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+         patch("asyncio.sleep", new_callable=AsyncMock):
          
         # Mock parsing returning 1 transaction
         mock_import.return_value = [{'date': '2026-05-06', 'amount': -10, 'description': 'Test Bit', 'account_id': 1}]
@@ -219,7 +219,7 @@ async def test_document_handler_debounce_batch():
          patch("bot.handlers.document.check_access", return_value=True), \
          patch("bot.handlers.document.get_db_connection", side_effect=mock_get_db_conn), \
          patch("bot.handlers.document.get_all_item_aliases", new_callable=AsyncMock) as mock_aliases, \
-         patch("asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+         patch("asyncio.sleep", new_callable=AsyncMock):
 
         mock_import.side_effect = [
             [{'date': '2026-05-06', 'amount': -10, 'description': 'Tx1', 'account_id': 2}],
@@ -381,9 +381,9 @@ async def test_document_filters_old_bit_transactions():
         {'date': datetime.datetime(2026, 5, 10), 'amount': -20, 'source_type': 'import_bit', 'description': 'New Tx', 'account_id': 1}, # New
     ]
 
-    with patch("bot.handlers.document.import_excel_file", return_value=transactions) as mock_import, \
+    with patch("bot.handlers.document.import_excel_file", return_value=transactions), \
          patch("bot.handlers.document.save_transactions_bulk", return_value=1) as mock_save, \
-         patch("bot.handlers.document.create_database_dump", new_callable=AsyncMock) as mock_backup, \
+         patch("bot.handlers.document.create_database_dump", new_callable=AsyncMock), \
          patch("bot.handlers.document.check_access", return_value=True), \
          patch("bot.handlers.document.get_db_connection"), \
          patch("bot.handlers.document.get_latest_import_date", new_callable=AsyncMock) as mock_get_date, \

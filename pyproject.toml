@@ -19,4 +19,12 @@ dependencies = [
 dev = [
     "pytest>=9.0.3",
     "pytest-asyncio>=1.3.0",
+    "ruff>=0.17.6",
 ]
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+# Explicit, so new ruff releases don't widen the rule set on their own.
+select = ["E4", "E7", "E9", "F"]
