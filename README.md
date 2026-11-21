@@ -50,7 +50,7 @@ The project features a fully automated CI/CD pipeline configured via GitHub Acti
 
 ### When It Runs
 *   **Pull requests to `main`:** only **Run Tests**. The result is shown on the PR, and a PR must pass it before merging. No image is built and nothing is deployed.
-*   **Pushes to `main`** (i.e. merged PRs): all three stages below.
+*   **Pushes to `main`** (i.e. merged PRs): all three stages below. If the push changes only docs (`docs/` or Markdown files), the tests still run but build and deploy are skipped.
 *   A newer commit on the same PR cancels that PR's outdated run. Runs on `main` are never cancelled, so a deploy is never interrupted.
 
 ### Pipeline Stages
@@ -63,7 +63,7 @@ The project features a fully automated CI/CD pipeline configured via GitHub Acti
     *   Launches services using `docker compose` in detached mode.
 
 > [!NOTE]
-> Commits containing `[skip ci]` in their message skip the pipeline, including the PR checks. Use it only for docs-only changes. When merging such a PR, use **Squash and merge** with `[skip ci]` in the title so the commit on `main` carries the tag.
+> Don't put `[skip ci]` in commit messages or PR titles. It skips the whole pipeline, including **Run Tests**, which branch protection requires, so the PR can't be merged. Docs-only changes are detected automatically and don't deploy.
 
 ---
 
