@@ -1,5 +1,3 @@
-import pytest
-from typing import Dict, Optional
 
 # We will import these from the module once implemented
 try:
