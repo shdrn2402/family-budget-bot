@@ -32,14 +32,25 @@ def test_tests_run_for_every_trigger() -> None:
 
 def test_build_and_deploy_only_run_on_push_to_main() -> None:
     jobs = _workflow()["jobs"]
-    for job_name in ("build-and-push", "deploy"):
-        assert jobs[job_name].get("if") == PUSH_TO_MAIN_ONLY, job_name
+    assert jobs["changes"]["if"] == PUSH_TO_MAIN_ONLY
+    assert jobs["build-and-push"]["if"] == f"{PUSH_TO_MAIN_ONLY} && needs.changes.outputs.deploy == 'true'"
+    # deploy needs build-and-push, so it is skipped whenever the build is.
+    assert jobs["deploy"]["if"] == PUSH_TO_MAIN_ONLY
 
 
 def test_deploy_still_requires_build_and_build_requires_tests() -> None:
     jobs = _workflow()["jobs"]
-    assert jobs["build-and-push"]["needs"] == "test"
+    assert jobs["build-and-push"]["needs"] == ["test", "changes"]
     assert jobs["deploy"]["needs"] == "build-and-push"
+
+
+def test_deploy_decision_comes_from_the_diff_script() -> None:
+    changes = _workflow()["jobs"]["changes"]
+    assert changes["outputs"]["deploy"] == "${{ steps.diff.outputs.deploy }}"
+    checkout, diff = changes["steps"]
+    assert checkout["with"]["fetch-depth"] == 0
+    assert diff["id"] == "diff"
+    assert ".github/scripts/needs_deploy.sh" in diff["run"]
 
 
 def test_workflow_permissions_are_read_only_by_default() -> None:

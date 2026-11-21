@@ -59,10 +59,33 @@ jobs:
           TEST_DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/postgres"
         run: uv run pytest
 
+  # On pushes to main, decide whether anything deployable changed. Docs-only
+  # pushes (docs/ and Markdown files) still run the tests, which branch
+  # protection requires, but skip build and deploy. Don't use `[skip ci]`:
+  # it skips the required check too and blocks the PR from merging.
+  changes:
+    name: Detect Deployable Changes
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    outputs:
+      deploy: ${{ steps.diff.outputs.deploy }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compare the pushed range
+        id: diff
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: .github/scripts/needs_deploy.sh "$BEFORE" "$AFTER" >> "$GITHUB_OUTPUT"
+
   build-and-push:
     name: Build and Push Docker Image
-    needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [test, changes]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.deploy == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
