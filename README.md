@@ -140,6 +140,7 @@ The script asks you to type the database name, stops the bot, replaces the `budg
 
 ---
 
-## 📅 Roadmap & Backlog
-*   Check [ROADMAP.md](./docs/ROADMAP.md) for completed phases and upcoming ergonomic improvements.
-*   Check [BACKLOG.md](./docs/BACKLOG.md) for future project architecture ideas.
+## 📅 Roadmap, Known Issues & Ideas
+*   [ROADMAP.md](./docs/ROADMAP.md): the staged plan from the bot to the data platform.
+*   [Known issues](https://github.com/shdrn2402/family-budget-bot/issues?q=is%3Aissue+is%3Aopen+label%3Aknown-issue): problems pinned by a test or scenario, each with the stage that fixes it.
+*   [Ideas](https://github.com/shdrn2402/family-budget-bot/issues?q=is%3Aissue+is%3Aopen+label%3Aidea): not on the roadmap yet.
