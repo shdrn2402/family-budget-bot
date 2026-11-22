@@ -1,0 +1,58 @@
+[
+  {
+    "date": "2026-06-01T00:00:00",
+    "amount": 0.12,
+    "description": "INTEREST CREDIT 0.10% 06/26",
+    "external_id": "leumi_100001_20260601_0.12",
+    "account_id": 3,
+    "source_type": "import_xls"
+  },
+  {
+    "date": "2026-06-01T00:00:00",
+    "amount": -0.35,
+    "description": "ACCOUNT FEE 0.10% 06/26",
+    "external_id": "leumi_100002_20260601_-0.35",
+    "account_id": 3,
+    "source_type": "import_xls"
+  },
+  {
+    "date": "2026-06-02T00:00:00",
+    "amount": -650.0,
+    "description": "TRANSFER - 123456",
+    "external_id": "leumi_2000001_20260602_-650.0",
+    "account_id": 3,
+    "source_type": "import_xls"
+  },
+  {
+    "date": "2026-06-03T00:00:00",
+    "amount": 12500.0,
+    "description": "SALARY DEMO LTD",
+    "external_id": "leumi_30001_20260603_12500.0",
+    "account_id": 3,
+    "source_type": "import_xls"
+  },
+  {
+    "date": "2026-06-12T00:00:00",
+    "amount": -99.0,
+    "description": "STANDING ORDER - 654321",
+    "external_id": "leumi_50001_20260612_-99.0",
+    "account_id": 3,
+    "source_type": "import_xls"
+  },
+  {
+    "date": "2026-06-15T00:00:00",
+    "amount": 300.0,
+    "description": "BIT TRANSFER",
+    "external_id": "leumi_60001_20260615_300.0",
+    "account_id": 3,
+    "source_type": "import_xls"
+  },
+  {
+    "date": "2026-06-20T00:00:00",
+    "amount": -1250.0,
+    "description": "CASH WITHDRAWAL",
+    "external_id": "leumi_70001_20260620_-1250.0",
+    "account_id": 3,
+    "source_type": "import_xls"
+  }
+]

@@ -1,0 +1,17 @@
+﻿Status, Description, Fee Amount, Amount, Payment Method, Credit/Debit, From/To, Date
+Done, העברת כספים bit, 0, 150, יתרה, Credit, ישראל ישראלי, 03.06.26, 
+Done, תשלום ב-bit, 0, 80, כרטיס אשראי, Debit, מסעדה לדוגמה, 05.06.26, 
+Done, Перевод другу, 0, 45.5, יתרה, Debit, Иван Петров, 07.06.26, 
+Done, Withdrawal to bank account, 0, 300, חשבון בנק, Credit, ישראל ישראלי, 10.06.26, 
+Done, העברת כספים bit, 0, 500, חשבון בנק, Credit, דנה כהן, 12.06.26, 
+Done, Gift, 0, 100, יתרה, Credit, דנה כהן, 14.06.26, 
+Done, change, 0, 20, חשבון בנק, Credit, ישראל ישראלי, 15.06.26, 
+Done, העברת כספים bit, 0, 25, יתרה, Debit, משה לוי, 16.06.26, 
+Done, העברת כספים bit, 0, 25, יתרה, Debit, משה לוי, 16.06.26, 
+Expired, העברת כספים bit, 0, 60, יתרה, Debit, משה לוי, 18.06.26, 
+Failed, תשלום ב-bit, 0, 70, כרטיס אשראי, Debit, חנות לדוגמה, 19.06.26, 
+Done, תשלום ב-bit, 0, 1200, כרטיס אשראי, Debit, ועד בית לדוגמה, 20.06.26, 
+
+,,,,,,1. The transaction details in the data files were generated via an automated interface and may contain spelling, formatting, or calculation errors. 
+,,,,,,2. Use discretion when downloading and/or sharing the data. 
+,,,,,,3. These files are not password-protected, and anyone with access can view them.

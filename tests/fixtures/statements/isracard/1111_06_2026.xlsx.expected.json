@@ -1,0 +1,90 @@
+[
+  {
+    "date": "2026-05-02T00:00:00",
+    "amount": -245.9,
+    "description": "סופר לדוגמה",
+    "external_id": "isracard_1000001",
+    "account_id": 2,
+    "source_type": "import_xls"
+  },
+  {
+    "date": "2026-05-03T00:00:00",
+    "amount": -18.0,
+    "description": "קפה הדגמה",
+    "external_id": "isracard_1000002",
+    "account_id": 2,
+    "source_type": "import_xls"
+  },
+  {
+    "date": "2026-05-05T00:00:00",
+    "amount": -49.9,
+    "description": "חברת סלולר לדוגמה",
+    "external_id": "isracard_1000003",
+    "account_id": 2,
+    "source_type": "import_xls"
+  },
+  {
+    "date": "2026-05-07T00:00:00",
+    "amount": -100.0,
+    "description": "חנות רהיטים לדוגמה",
+    "external_id": "isracard_1000004",
+    "account_id": 2,
+    "source_type": "import_xls"
+  },
+  {
+    "date": "2026-05-09T00:00:00",
+    "amount": -59.5,
+    "description": "פארם לדוגמה",
+    "external_id": "isracard_1000005",
+    "account_id": 2,
+    "source_type": "import_xls"
+  },
+  {
+    "date": "2026-05-12T00:00:00",
+    "amount": -300.0,
+    "description": "דלק בע\"מ לדוגמה",
+    "external_id": "isracard_1000006",
+    "account_id": 2,
+    "source_type": "import_xls"
+  },
+  {
+    "date": "2026-05-14T00:00:00",
+    "amount": -7.5,
+    "description": "מאפייה-שכונתית",
+    "external_id": "isracard_1000007",
+    "account_id": 2,
+    "source_type": "import_xls"
+  },
+  {
+    "date": "2026-05-20T00:00:00",
+    "amount": -50.0,
+    "description": "תשלום אחרון לדוגמה",
+    "external_id": "isracard_1000008",
+    "account_id": 2,
+    "source_type": "import_xls"
+  },
+  {
+    "date": "2026-06-01T00:00:00",
+    "amount": -39.9,
+    "description": "STREAMING DEMO   AMSTERDAM",
+    "external_id": "isracard_2000001",
+    "account_id": 2,
+    "source_type": "import_xls"
+  },
+  {
+    "date": "2026-06-03T00:00:00",
+    "amount": -74.6,
+    "description": "DEMO STORE *ONLINE   LONDON",
+    "external_id": "isracard_2000002",
+    "account_id": 2,
+    "source_type": "import_xls"
+  },
+  {
+    "date": "2026-06-05T00:00:00",
+    "amount": -665.0,
+    "description": "CLOUD.DEMO/BILL   DUBLIN",
+    "external_id": "isracard_2000003",
+    "account_id": 2,
+    "source_type": "import_xls"
+  }
+]
