@@ -1,0 +1,112 @@
+[
+  {
+    "date": "2026-06-03T00:00:00",
+    "amount": 150.0,
+    "description": "העברת כספים bit",
+    "comment": "ישראל ישראלי",
+    "external_id": "bit_20260603_5_150.0_ישראל ישראלי",
+    "account_id": 5,
+    "source_type": "import_bit",
+    "status": "confirmed"
+  },
+  {
+    "date": "2026-06-05T00:00:00",
+    "amount": -80.0,
+    "description": "תשלום ב-bit",
+    "comment": "מסעדה לדוגמה",
+    "external_id": "bit_20260605_7_-80.0_מסעדה לדוגמה",
+    "account_id": 7,
+    "source_type": "import_bit",
+    "status": "confirmed"
+  },
+  {
+    "date": "2026-06-07T00:00:00",
+    "amount": -45.5,
+    "description": "Перевод другу",
+    "comment": "Иван Петров",
+    "external_id": "bit_20260607_5_-45.5_Иван Петров",
+    "account_id": 5,
+    "source_type": "import_bit",
+    "status": "confirmed"
+  },
+  {
+    "date": "2026-06-10T00:00:00",
+    "amount": -300.0,
+    "description": "Withdrawal to bank account",
+    "comment": "ישראל ישראלי",
+    "external_id": "bit_20260610_5_-300.0_ישראל ישראלי",
+    "account_id": 5,
+    "source_type": "import_bit",
+    "status": "confirmed"
+  },
+  {
+    "date": "2026-06-10T00:00:00",
+    "amount": 300.0,
+    "description": "Withdrawal to bank account",
+    "comment": "ישראל ישראלי",
+    "external_id": "bit_20260610_3_300.0_ישראל ישראלי",
+    "account_id": 3,
+    "source_type": "import_bit",
+    "status": "confirmed"
+  },
+  {
+    "date": "2026-06-12T00:00:00",
+    "amount": 500.0,
+    "description": "העברת כספים bit",
+    "comment": "דנה כהן",
+    "external_id": "bit_20260612_3_500.0_דנה כהן",
+    "account_id": 3,
+    "source_type": "import_bit",
+    "status": "confirmed"
+  },
+  {
+    "date": "2026-06-14T00:00:00",
+    "amount": 100.0,
+    "description": "Gift",
+    "comment": "דנה כהן",
+    "external_id": "bit_20260614_5_100.0_דנה כהן",
+    "account_id": 5,
+    "source_type": "import_bit",
+    "status": "confirmed"
+  },
+  {
+    "date": "2026-06-15T00:00:00",
+    "amount": 20.0,
+    "description": "change",
+    "comment": "ישראל ישראלי",
+    "external_id": "bit_20260615_3_20.0_ישראל ישראלי",
+    "account_id": 3,
+    "source_type": "import_bit",
+    "status": "confirmed"
+  },
+  {
+    "date": "2026-06-16T00:00:00",
+    "amount": -25.0,
+    "description": "העברת כספים bit",
+    "comment": "משה לוי",
+    "external_id": "bit_20260616_5_-25.0_משה לוי",
+    "account_id": 5,
+    "source_type": "import_bit",
+    "status": "confirmed"
+  },
+  {
+    "date": "2026-06-16T00:00:00",
+    "amount": -25.0,
+    "description": "העברת כספים bit",
+    "comment": "משה לוי",
+    "external_id": "bit_20260616_5_-25.0_משה לוי",
+    "account_id": 5,
+    "source_type": "import_bit",
+    "status": "confirmed"
+  },
+  {
+    "date": "2026-06-20T00:00:00",
+    "amount": -1200.0,
+    "description": "תשלום ב-bit",
+    "comment": "ועד בית לדוגמה",
+    "external_id": "bit_20260620_7_-1200.0_ועד בית לדוגמה",
+    "account_id": 7,
+    "source_type": "import_bit",
+    "status": "confirmed"
+  }
+]
