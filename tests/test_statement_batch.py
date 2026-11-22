@@ -47,3 +47,18 @@ def test_offsets_come_after_all_lines() -> None:
     batch = prepare_statement_batch(lines, ALIASES)
 
     assert [tx["external_id"] for tx in batch] == ["a", "b", "a_offset"]
+
+
+def test_current_behaviour_every_bit_transfer_gets_the_first_learned_counterparty_category() -> None:
+    """#38: the inline menu learns 'description comment' aliases, but import categorization only
+    looks at the description. Bit lines all say 'Transfer', and the partial match finds it inside
+    the first learned alias, so transfers to anyone get that counterparty's category."""
+    learned = {"transfer dana cohen": 16, "transfer moshe levi": 19}  # as stored by the inline menu
+    lines = [
+        {"description": "Transfer", "comment": who, "amount": -80, "external_id": f"bit_{n}", "account_id": 5}
+        for n, who in enumerate(["Dana Cohen", "Moshe Levi", "Someone New"])
+    ]
+
+    batch = prepare_statement_batch(lines, learned)
+
+    assert [tx["category_id"] for tx in batch] == [16, 16, 16]
