@@ -1,0 +1,143 @@
+{
+  "parser_version": "1.0.0",
+  "period_start": "2026-05-02",
+  "period_end": "2026-06-05",
+  "source": "isracard",
+  "statement_month": "2026-06-01",
+  "billing_date": "2026-06-15",
+  "statement_total": "1610.30",
+  "rows": [
+    {
+      "section": "billing",
+      "purchase_date": "2026-05-02",
+      "merchant": "סופר לדוגמה",
+      "amount": "245.9",
+      "currency": "₪",
+      "charge_amount": "245.9",
+      "charge_currency": "₪",
+      "voucher": "1000001",
+      "notes": null,
+      "bank_charge_date": null
+    },
+    {
+      "section": "billing",
+      "purchase_date": "2026-05-03",
+      "merchant": "קפה הדגמה",
+      "amount": "18",
+      "currency": "₪",
+      "charge_amount": "18",
+      "charge_currency": "₪",
+      "voucher": "1000002",
+      "notes": null,
+      "bank_charge_date": null
+    },
+    {
+      "section": "billing",
+      "purchase_date": "2026-05-05",
+      "merchant": "חברת סלולר לדוגמה",
+      "amount": "49.9",
+      "currency": "₪",
+      "charge_amount": "49.9",
+      "charge_currency": "₪",
+      "voucher": "1000003",
+      "notes": "הוראת קבע",
+      "bank_charge_date": null
+    },
+    {
+      "section": "billing",
+      "purchase_date": "2026-05-07",
+      "merchant": "חנות רהיטים לדוגמה",
+      "amount": "1200",
+      "currency": "₪",
+      "charge_amount": "100",
+      "charge_currency": "₪",
+      "voucher": "1000004",
+      "notes": "תשלום 3 מתוך 12",
+      "bank_charge_date": null
+    },
+    {
+      "section": "billing",
+      "purchase_date": "2026-05-09",
+      "merchant": "פארם לדוגמה",
+      "amount": "64.5",
+      "currency": "₪",
+      "charge_amount": "59.5",
+      "charge_currency": "₪",
+      "voucher": "1000005",
+      "notes": "הנחה ₪5.00",
+      "bank_charge_date": null
+    },
+    {
+      "section": "billing",
+      "purchase_date": "2026-05-12",
+      "merchant": "דלק בע\"מ לדוגמה",
+      "amount": "300",
+      "currency": "₪",
+      "charge_amount": "300",
+      "charge_currency": "₪",
+      "voucher": "1000006",
+      "notes": null,
+      "bank_charge_date": null
+    },
+    {
+      "section": "billing",
+      "purchase_date": "2026-05-14",
+      "merchant": "מאפייה-שכונתית",
+      "amount": "7.5",
+      "currency": "₪",
+      "charge_amount": "7.5",
+      "charge_currency": "₪",
+      "voucher": "1000007",
+      "notes": null,
+      "bank_charge_date": null
+    },
+    {
+      "section": "billing",
+      "purchase_date": "2026-05-20",
+      "merchant": "תשלום אחרון לדוגמה",
+      "amount": "600",
+      "currency": "₪",
+      "charge_amount": "50",
+      "charge_currency": "₪",
+      "voucher": "1000008",
+      "notes": "תשלום 12 מתוך 12\nתשלום אחרון",
+      "bank_charge_date": null
+    },
+    {
+      "section": "outside_billing",
+      "purchase_date": "2026-06-01",
+      "merchant": "STREAMING DEMO   AMSTERDAM",
+      "amount": "39.9",
+      "currency": "₪",
+      "charge_amount": "39.9",
+      "charge_currency": "₪",
+      "voucher": "2000001",
+      "notes": "אתר חו\"ל\nהוראת קבע",
+      "bank_charge_date": "2026-06-02"
+    },
+    {
+      "section": "outside_billing",
+      "purchase_date": "2026-06-03",
+      "merchant": "DEMO STORE *ONLINE   LONDON",
+      "amount": "20",
+      "currency": "$",
+      "charge_amount": "74.6",
+      "charge_currency": "₪",
+      "voucher": "2000002",
+      "notes": "בוצע בחו\"ל",
+      "bank_charge_date": "2026-06-04"
+    },
+    {
+      "section": "outside_billing",
+      "purchase_date": "2026-06-05",
+      "merchant": "CLOUD.DEMO/BILL   DUBLIN",
+      "amount": "665",
+      "currency": "₪",
+      "charge_amount": "665",
+      "charge_currency": "₪",
+      "voucher": "2000003",
+      "notes": "אתר חו\"ל",
+      "bank_charge_date": "2026-06-06"
+    }
+  ]
+}

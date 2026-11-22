@@ -64,14 +64,14 @@ ISRACARD_FOOTER = [
 ]
 
 
-def _isracard_title(month: str, total: str) -> list[list]:
+def _isracard_title(month: str, total: str, billing: str) -> list[list]:
     return [
         [],
         [ISRACARD_SHEET, None, month],
         [],
         [],
         ["‫כרטיס לדוגמה‬ - 1111", None, None, None, None, None, None, total],
-        ["על שם ישראל ישראלי", None, None, None, None, None, None, "לחיוב ב-15.06"],
+        ["על שם ישראל ישראלי", None, None, None, None, None, None, f"לחיוב ב-{billing}"],
         [],
         [],
     ]
@@ -80,7 +80,7 @@ def _isracard_title(month: str, total: str) -> list[list]:
 def isracard_statement() -> list[list]:
     """A month with both regular tables: billing-date charges and charges outside it."""
     return [
-        *_isracard_title("יוני 2026", "₪ 1,610.30"),
+        *_isracard_title("יוני 2026", "₪ 1,610.30", "15.06"),
         ["עסקאות למועד חיוב"],
         ISRACARD_HEADER,
         ["02.05.26", "סופר לדוגמה", 245.9, "₪", 245.9, "₪", "1000001"],
@@ -108,7 +108,7 @@ def isracard_statement() -> list[list]:
 def isracard_statement_with_pending() -> list[list]:
     """A month that starts with the pending-transactions table (4 columns, no voucher)."""
     return [
-        *_isracard_title("יולי 2026", "₪ 412.00"),
+        *_isracard_title("יולי 2026", "₪ 412.00", "15.07"),
         [],
         [],
         [],

@@ -1,0 +1,59 @@
+{
+  "parser_version": "1.0.0",
+  "period_start": "2026-06-01",
+  "period_end": "2026-06-29",
+  "source": "isracard",
+  "statement_month": "2026-07-01",
+  "billing_date": "2026-07-15",
+  "statement_total": "412.00",
+  "rows": [
+    {
+      "section": "pending",
+      "purchase_date": "2026-06-28",
+      "merchant": "מסעדה לדוגמה",
+      "amount": "120",
+      "currency": "₪",
+      "charge_amount": null,
+      "charge_currency": null,
+      "voucher": null,
+      "notes": null,
+      "bank_charge_date": null
+    },
+    {
+      "section": "pending",
+      "purchase_date": "2026-06-29",
+      "merchant": "DEMO APP STORE",
+      "amount": "9.99",
+      "currency": "$",
+      "charge_amount": null,
+      "charge_currency": null,
+      "voucher": null,
+      "notes": null,
+      "bank_charge_date": null
+    },
+    {
+      "section": "billing",
+      "purchase_date": "2026-06-01",
+      "merchant": "סופר לדוגמה",
+      "amount": "380",
+      "currency": "₪",
+      "charge_amount": "380",
+      "charge_currency": "₪",
+      "voucher": "3000001",
+      "notes": null,
+      "bank_charge_date": null
+    },
+    {
+      "section": "billing",
+      "purchase_date": "2026-06-02",
+      "merchant": "קפה הדגמה",
+      "amount": "32",
+      "currency": "₪",
+      "charge_amount": "32",
+      "charge_currency": "₪",
+      "voucher": "3000002",
+      "notes": null,
+      "bank_charge_date": null
+    }
+  ]
+}

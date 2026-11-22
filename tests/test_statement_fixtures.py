@@ -1,6 +1,8 @@
-"""Golden tests: the current parsers on fake statement files (tests/fixtures/statements/).
+"""Golden tests: what the bot imports from fake statement files (tests/fixtures/statements/).
 
-Each fixture has a `<name>.expected.json` next to it with the parser output.
+Each fixture has a `<name>.expected.json` next to it with the import adapter's output
+(bot/services/importer.py on top of budget_core.parsers; the parsed statements
+themselves are pinned in tests/core/test_core_parsers.py).
 The test fails on any difference. To accept a change on purpose, rebuild the
 goldens and review the diff:
 
