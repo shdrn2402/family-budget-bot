@@ -26,3 +26,10 @@ def test_compose_bot_timezone_has_household_default() -> None:
     """If the .env value is missing, the container should still use the household timezone."""
     entry = next(e for e in _bot_environment() if e.startswith("BOT_TIMEZONE="))
     assert entry == "BOT_TIMEZONE=${BOT_TIMEZONE:-Asia/Jerusalem}"
+
+
+def test_image_includes_every_first_party_package() -> None:
+    """The bot imports budget_core; an image without it fails at startup, not in CI."""
+    dockerfile = (PROJECT_ROOT / "Dockerfile").read_text(encoding="utf-8")
+    for package in ("bot", "budget_core"):
+        assert f"{package}/ ./{package}/" in dockerfile, package
