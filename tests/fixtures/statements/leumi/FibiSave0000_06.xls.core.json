@@ -1,0 +1,99 @@
+{
+  "parser_version": "1.0.0",
+  "period_start": "2026-06-01",
+  "period_end": "2026-06-20",
+  "source": "leumi",
+  "opening_balance": "-1520.4",
+  "rows": [
+    {
+      "date": "2026-06-01",
+      "value_date": "2026-06-01",
+      "description": "INTEREST CREDIT 0.10% 06/26",
+      "credit": "0.12",
+      "debit": null,
+      "balance": null,
+      "reference": "100001",
+      "code": "469"
+    },
+    {
+      "date": "2026-06-01",
+      "value_date": "2026-06-01",
+      "description": "ACCOUNT FEE 0.10% 06/26",
+      "credit": null,
+      "debit": "0.35",
+      "balance": null,
+      "reference": "100002",
+      "code": "470"
+    },
+    {
+      "date": "2026-06-02",
+      "value_date": "2026-06-02",
+      "description": "TRANSFER - 123456",
+      "credit": null,
+      "debit": "650",
+      "balance": "-2170.29",
+      "reference": "2000001",
+      "code": "175"
+    },
+    {
+      "date": "2026-06-03",
+      "value_date": "2026-06-03",
+      "description": "SALARY DEMO LTD",
+      "credit": "12500",
+      "debit": null,
+      "balance": "10329.71",
+      "reference": "30001",
+      "code": "120"
+    },
+    {
+      "date": "2026-06-10",
+      "value_date": "2026-06-10",
+      "description": "ISRACARD - 1111",
+      "credit": null,
+      "debit": "2310.75",
+      "balance": null,
+      "reference": "40001",
+      "code": "106"
+    },
+    {
+      "date": "2026-06-10",
+      "value_date": "2026-06-10",
+      "description": "ISRACARD - 1111",
+      "credit": null,
+      "debit": "412",
+      "balance": null,
+      "reference": "40002",
+      "code": "106"
+    },
+    {
+      "date": "2026-06-12",
+      "value_date": "2026-06-12",
+      "description": "STANDING ORDER - 654321",
+      "credit": null,
+      "debit": "99",
+      "balance": "7507.96",
+      "reference": "50001",
+      "code": "470"
+    },
+    {
+      "date": "2026-06-15",
+      "value_date": "2026-06-15",
+      "description": "BIT TRANSFER",
+      "credit": "300",
+      "debit": null,
+      "balance": null,
+      "reference": "60001",
+      "code": "571"
+    },
+    {
+      "date": "2026-06-20",
+      "value_date": "2026-06-20",
+      "description": "CASH WITHDRAWAL",
+      "credit": null,
+      "debit": "1250",
+      "balance": "6557.96",
+      "reference": "70001",
+      "code": "211"
+    }
+  ]
+}

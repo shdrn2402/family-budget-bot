@@ -1,0 +1,128 @@
+{
+  "parser_version": "1.0.0",
+  "period_start": "2026-06-03",
+  "period_end": "2026-06-20",
+  "source": "bit",
+  "rows": [
+    {
+      "date": "2026-06-03",
+      "status": "Done",
+      "description": "העברת כספים bit",
+      "amount": "150",
+      "fee": "0",
+      "payment_method": "יתרה",
+      "direction": "Credit",
+      "counterparty": "ישראל ישראלי"
+    },
+    {
+      "date": "2026-06-05",
+      "status": "Done",
+      "description": "תשלום ב-bit",
+      "amount": "80",
+      "fee": "0",
+      "payment_method": "כרטיס אשראי",
+      "direction": "Debit",
+      "counterparty": "מסעדה לדוגמה"
+    },
+    {
+      "date": "2026-06-07",
+      "status": "Done",
+      "description": "Перевод другу",
+      "amount": "45.5",
+      "fee": "0",
+      "payment_method": "יתרה",
+      "direction": "Debit",
+      "counterparty": "Иван Петров"
+    },
+    {
+      "date": "2026-06-10",
+      "status": "Done",
+      "description": "Withdrawal to bank account",
+      "amount": "300",
+      "fee": "0",
+      "payment_method": "חשבון בנק",
+      "direction": "Credit",
+      "counterparty": "ישראל ישראלי"
+    },
+    {
+      "date": "2026-06-12",
+      "status": "Done",
+      "description": "העברת כספים bit",
+      "amount": "500",
+      "fee": "0",
+      "payment_method": "חשבון בנק",
+      "direction": "Credit",
+      "counterparty": "דנה כהן"
+    },
+    {
+      "date": "2026-06-14",
+      "status": "Done",
+      "description": "Gift",
+      "amount": "100",
+      "fee": "0",
+      "payment_method": "יתרה",
+      "direction": "Credit",
+      "counterparty": "דנה כהן"
+    },
+    {
+      "date": "2026-06-15",
+      "status": "Done",
+      "description": "change",
+      "amount": "20",
+      "fee": "0",
+      "payment_method": "חשבון בנק",
+      "direction": "Credit",
+      "counterparty": "ישראל ישראלי"
+    },
+    {
+      "date": "2026-06-16",
+      "status": "Done",
+      "description": "העברת כספים bit",
+      "amount": "25",
+      "fee": "0",
+      "payment_method": "יתרה",
+      "direction": "Debit",
+      "counterparty": "משה לוי"
+    },
+    {
+      "date": "2026-06-16",
+      "status": "Done",
+      "description": "העברת כספים bit",
+      "amount": "25",
+      "fee": "0",
+      "payment_method": "יתרה",
+      "direction": "Debit",
+      "counterparty": "משה לוי"
+    },
+    {
+      "date": "2026-06-18",
+      "status": "Expired",
+      "description": "העברת כספים bit",
+      "amount": "60",
+      "fee": "0",
+      "payment_method": "יתרה",
+      "direction": "Debit",
+      "counterparty": "משה לוי"
+    },
+    {
+      "date": "2026-06-19",
+      "status": "Failed",
+      "description": "תשלום ב-bit",
+      "amount": "70",
+      "fee": "0",
+      "payment_method": "כרטיס אשראי",
+      "direction": "Debit",
+      "counterparty": "חנות לדוגמה"
+    },
+    {
+      "date": "2026-06-20",
+      "status": "Done",
+      "description": "תשלום ב-bit",
+      "amount": "1200",
+      "fee": "0",
+      "payment_method": "כרטיס אשראי",
+      "direction": "Debit",
+      "counterparty": "ועד בית לדוגמה"
+    }
+  ]
+}
