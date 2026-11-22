@@ -12,7 +12,7 @@ from bot.database import (
     get_user_card_account,
     save_transactions_bulk,
 )
-from bot.services.categorizer import auto_categorize
+from bot.services.statement_batch import prepare_statement_batch
 from bot.handlers.common import check_access
 from bot.texts import get_text
 from bot.services.backup import create_database_dump
@@ -226,30 +226,7 @@ async def process_batch(
             # Load aliases to auto-categorize
             db_aliases = await get_all_item_aliases(conn)
             
-            # Enrich transactions with category_id
-            for tx in all_transactions:
-                cat_id = auto_categorize(tx['description'], tx['amount'], db_aliases)
-                if cat_id is not None:
-                    tx['category_id'] = cat_id
-
-            # Generate offsetting transactions for internal transfers (Cash & Transit)
-            offsetting_transactions = []
-            for tx in all_transactions:
-                cat_id = tx.get('category_id')
-                if cat_id == 43:  # Cash Withdrawal
-                    offset_tx = tx.copy()
-                    offset_tx['amount'] = -tx['amount']
-                    offset_tx['account_id'] = 4  # Shared Cash
-                    offset_tx['external_id'] = f"{tx.get('external_id', '')}_offset"
-                    offsetting_transactions.append(offset_tx)
-                elif cat_id == 15:  # Internal Transfer (Bit/Paybox)
-                    offset_tx = tx.copy()
-                    offset_tx['amount'] = -tx['amount']
-                    offset_tx['account_id'] = 5  # Transit
-                    offset_tx['external_id'] = f"{tx.get('external_id', '')}_offset"
-                    offsetting_transactions.append(offset_tx)
-            
-            all_transactions.extend(offsetting_transactions)
+            all_transactions = prepare_statement_batch(all_transactions, db_aliases)
 
             # Save to DB
             inserted_count = await save_transactions_bulk(user_id, all_transactions, conn)

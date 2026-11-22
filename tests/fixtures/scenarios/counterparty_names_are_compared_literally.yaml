@@ -1,0 +1,16 @@
+id: counterparty_names_are_compared_literally
+description: "'D_na' is a different name from 'Dana', although SQL LIKE '%D_na%' would match it."
+steps:
+  - statement_import:
+      user: alice
+      lines:
+        - {account: alice_card, amount: -80, date: 2026-06-10, external_id: isracard_wild, description: TEST SHOP, comment: Dana}
+  - statement_import:
+      user: alice
+      lines:
+        - {account: alice_card, amount: -80, date: 2026-06-11, external_id: bit_new, description: Transfer,
+           comment: D_na, source_type: import_bit}
+      expect_saved: 1
+expected:
+  - {user: alice, account: alice_card, amount: -80, date: 2026-06-10, status: confirmed, source_type: import_xls,
+     external_id: isracard_wild, description: TEST SHOP, comment: "Dana, D_na"}

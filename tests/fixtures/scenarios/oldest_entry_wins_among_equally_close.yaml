@@ -1,0 +1,14 @@
+id: oldest_entry_wins_among_equally_close
+description: With two equally close pending entries, the one entered first is confirmed.
+steps:
+  - manual_entry: {user: alice, item: lunch, amount: 50, account: alice_card, category: restaurants, date: 2026-06-10, comment: first}
+  - manual_entry: {user: alice, item: lunch, amount: 50, account: alice_card, category: restaurants, date: 2026-06-10, comment: second}
+  - statement_import:
+      user: alice
+      lines:
+        - {account: alice_card, amount: -50, date: 2026-06-10, external_id: isracard_oldest, description: TEST SHOP}
+expected:
+  - {user: alice, account: alice_card, amount: -50, date: 2026-06-10, status: confirmed, source_type: import_xls,
+     external_id: isracard_oldest, description: TEST SHOP, comment: "lunch, first", category: restaurants}
+  - {user: alice, account: alice_card, amount: -50, date: 2026-06-10, status: pending, source_type: manual_text,
+     description: lunch, comment: second, category: restaurants}

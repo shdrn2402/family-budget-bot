@@ -1,0 +1,17 @@
+id: bank_line_does_not_take_over_a_bit_balance_row
+description: A Bit balance credit and a bank credit of the same amount are two events; both are kept.
+steps:
+  - statement_import:
+      user: alice
+      lines:
+        - {account: transit, amount: 310, date: 2026-06-10, external_id: bit_balance_credit, description: Transfer,
+           comment: Dana Cohen, source_type: import_bit}
+  - statement_import:
+      user: alice
+      lines:
+        - {account: family_bank, amount: 310, date: 2026-06-11, external_id: leumi_credit, description: TEST SHOP}
+expected:
+  - {user: alice, account: transit, amount: 310, date: 2026-06-10, status: confirmed, source_type: import_bit,
+     external_id: bit_balance_credit, description: Transfer, comment: Dana Cohen}
+  - {user: alice, account: family_bank, amount: 310, date: 2026-06-11, status: confirmed, source_type: import_xls,
+     external_id: leumi_credit, description: TEST SHOP}

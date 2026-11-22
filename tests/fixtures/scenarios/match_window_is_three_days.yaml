@@ -1,0 +1,11 @@
+id: match_window_is_three_days
+description: A statement line 3 days after the manual entry still confirms it.
+steps:
+  - manual_entry: {user: alice, item: lunch, amount: 50, account: alice_card, category: restaurants, date: 2026-06-10}
+  - statement_import:
+      user: alice
+      lines:
+        - {account: alice_card, amount: -50, date: 2026-06-13, external_id: isracard_in_window, description: TEST SHOP}
+expected:
+  - {user: alice, account: alice_card, amount: -50, date: 2026-06-13, status: confirmed, source_type: import_xls,
+     external_id: isracard_in_window, description: TEST SHOP, comment: lunch, category: restaurants}

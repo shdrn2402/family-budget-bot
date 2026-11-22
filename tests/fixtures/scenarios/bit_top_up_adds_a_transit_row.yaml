@@ -1,0 +1,13 @@
+id: bit_top_up_adds_a_transit_row
+description: Topping up the Bit balance by card is a transfer; an offsetting credit is added to the transit account.
+steps:
+  - statement_import:
+      user: alice
+      lines:
+        - {account: alice_card, amount: -100, date: 2026-06-10, external_id: isracard_topup, description: BIT TOP UP}
+      expect_saved: 2
+expected:
+  - {user: alice, account: alice_card, amount: -100, date: 2026-06-10, status: confirmed, source_type: import_xls,
+     external_id: isracard_topup, description: BIT TOP UP, category: internal_transfer}
+  - {user: alice, account: transit, amount: 100, date: 2026-06-10, status: confirmed, source_type: import_xls,
+     external_id: isracard_topup_offset, description: BIT TOP UP, category: internal_transfer}
