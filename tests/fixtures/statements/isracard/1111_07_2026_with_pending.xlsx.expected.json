@@ -1,0 +1,18 @@
+[
+  {
+    "date": "2026-06-01T00:00:00",
+    "amount": -380.0,
+    "description": "סופר לדוגמה",
+    "external_id": "isracard_3000001",
+    "account_id": 2,
+    "source_type": "import_xls"
+  },
+  {
+    "date": "2026-06-02T00:00:00",
+    "amount": -32.0,
+    "description": "קפה הדגמה",
+    "external_id": "isracard_3000002",
+    "account_id": 2,
+    "source_type": "import_xls"
+  }
+]
