@@ -1,0 +1,16 @@
+id: bit_withdrawal_to_bank
+description: A withdrawal from the Bit balance to the bank account arrives from the Bit parser as two rows (transit out, bank in).
+steps:
+  - statement_import:
+      user: alice
+      lines:
+        - {account: transit, amount: -300, date: 2026-06-10, external_id: bit_20260610_5_-300.0_Alice, description: Withdrawal to bank account,
+           comment: Alice, source_type: import_bit}
+        - {account: family_bank, amount: 300, date: 2026-06-10, external_id: bit_20260610_3_300.0_Alice, description: Withdrawal to bank account,
+           comment: Alice, source_type: import_bit}
+      expect_saved: 2
+expected:
+  - {user: alice, account: transit, amount: -300, date: 2026-06-10, status: confirmed, source_type: import_bit,
+     external_id: bit_20260610_5_-300.0_Alice, description: Withdrawal to bank account, comment: Alice}
+  - {user: alice, account: family_bank, amount: 300, date: 2026-06-10, status: confirmed, source_type: import_bit,
+     external_id: bit_20260610_3_300.0_Alice, description: Withdrawal to bank account, comment: Alice}

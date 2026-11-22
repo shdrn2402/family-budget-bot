@@ -1,0 +1,31 @@
+# The fake household every scenario runs against. All values are made up.
+# Account ids match the ids the code still has fixed (bank 3, shared cash 4, transit 5);
+# they move to configuration in a later Stage 1 step.
+
+users:            # key: fake Telegram user id
+  alice: 1001
+  bob: 1002
+
+accounts:
+  alice_card:  {id: 1, name: Alice Card, type: card, owner: alice}
+  bob_card:    {id: 2, name: Bob Card, type: card, owner: bob}
+  family_bank: {id: 3, name: Family Bank, type: card}
+  shared_cash: {id: 4, name: Shared Cash, type: cash}
+  transit:     {id: 5, name: Transit (Bit), type: transit}
+
+# Reference category ids (the public category tree, scripts/seed_data.sql).
+categories:
+  salary: 11
+  internal_transfer: 15
+  groceries: 18
+  restaurants: 19
+  home_maintenance: 23
+  cash_withdrawal: 43
+
+# Merchant rules: cleaned statement description -> category.
+merchant_rules:
+  CAFE DEMO: restaurants
+  SUPER DEMO: groceries
+  SALARY DEMO LTD: salary
+  "MATRIX ATM'S": cash_withdrawal
+  BIT TOP UP: internal_transfer

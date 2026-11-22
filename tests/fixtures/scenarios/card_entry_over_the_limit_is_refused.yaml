@@ -1,0 +1,6 @@
+id: card_entry_over_the_limit_is_refused
+description: A typed card expense over 150 is refused (bigger card purchases come from the statement), so nothing is stored.
+steps:
+  - manual_entry: {user: alice, item: sofa, amount: 200, account: alice_card, category: home_maintenance, date: 2026-06-10,
+                   expect: "error:card_limit_exceeded"}
+expected: []
