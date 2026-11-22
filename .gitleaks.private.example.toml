@@ -18,6 +18,13 @@ id = "household-name"
 description = "Real family member name"
 regex = '''(?i)\b(?:alice|bob)\b'''
 
+# Go's \b only knows Latin letters, so it never matches around Cyrillic text.
+# For non-Latin names, use explicit Unicode letter boundaries instead.
+[[rules]]
+id = "household-name-cyrillic"
+description = "Real family member name (Cyrillic)"
+regex = '''(?i)(?:^|[^\p{L}])(?:алиса|боб)(?:[^\p{L}]|$)'''
+
 [[rules]]
 id = "household-card-digits"
 description = "Real card digits next to a card-related word"

@@ -99,6 +99,18 @@ def test_private_config_still_applies_the_public_rules(private_repo: Path) -> No
 @pytest.mark.parametrize(
     ("content", "found"),
     [
+        ("владелец Алиса\n", True),
+        ("алисам\n", False),
+    ],
+)
+def test_cyrillic_names_match_as_whole_words(private_repo: Path, content: str, found: bool) -> None:
+    _stage(private_repo, "a.txt", content)
+    assert _scan(private_repo, "staged").returncode == (1 if found else 0)
+
+
+@pytest.mark.parametrize(
+    ("content", "found"),
+    [
         ("charged to card 1111\n", True),
         ("2222 credit\n", True),
         ("amount 1111 on 2026-11-11\n", False),
