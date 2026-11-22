@@ -1,0 +1,10 @@
+id: cash_entry_is_confirmed_right_away
+description: Cash has no statement, so a typed cash expense is confirmed when entered; income keeps a positive sign.
+steps:
+  - manual_entry: {user: bob, item: market, amount: 30, account: shared_cash, category: groceries, date: 2026-06-10, expect: confirmed}
+  - manual_entry: {user: bob, item: bonus, amount: 200, account: shared_cash, category: salary, date: 2026-06-11, expect: confirmed}
+expected:
+  - {user: bob, account: shared_cash, amount: -30, date: 2026-06-10, status: confirmed, source_type: manual_text,
+     description: market, category: groceries}
+  - {user: bob, account: shared_cash, amount: 200, date: 2026-06-11, status: confirmed, source_type: manual_text,
+     description: bonus, category: salary}

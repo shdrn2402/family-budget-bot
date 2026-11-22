@@ -1,0 +1,13 @@
+id: other_card_does_not_confirm_a_pending_entry
+description: "#17: the account is part of the match, so the same amount on another family member's card is its own row."
+steps:
+  - manual_entry: {user: alice, item: lunch, amount: 50, account: alice_card, category: restaurants, date: 2026-06-10}
+  - statement_import:
+      user: bob
+      lines:
+        - {account: bob_card, amount: -50, date: 2026-06-10, external_id: isracard_other_card, description: TEST SHOP}
+expected:
+  - {user: alice, account: alice_card, amount: -50, date: 2026-06-10, status: pending, source_type: manual_text,
+     description: lunch, category: restaurants}
+  - {user: bob, account: bob_card, amount: -50, date: 2026-06-10, status: confirmed, source_type: import_xls,
+     external_id: isracard_other_card, description: TEST SHOP}

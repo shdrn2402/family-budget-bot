@@ -1,0 +1,22 @@
+id: bank_statement_reuploaded_over_unmerged_rows
+description: >
+  #15: rows left unmerged by older code (a bank credit and an unrelated Bit credit of the same
+  amount and day). Re-uploading the bank statement skips the stored line before any matching,
+  and the rest of the batch is saved.
+steps:
+  - stored_row: {user: alice, account: family_bank, amount: 310, date: 2026-06-10, external_id: leumi_310, description: INCOMING TRANSFER}
+  - stored_row: {user: alice, account: transit, amount: 310, date: 2026-06-10, external_id: bit_credit_310, description: Transfer,
+                 comment: Bob, source_type: import_bit}
+  - statement_import:
+      user: alice
+      lines:
+        - {account: family_bank, amount: 310, date: 2026-06-10, external_id: leumi_310, description: INCOMING TRANSFER}
+        - {account: family_bank, amount: -999, date: 2026-06-30, external_id: unrelated_line, description: TEST SHOP}
+      expect_saved: 1
+expected:
+  - {user: alice, account: family_bank, amount: 310, date: 2026-06-10, status: confirmed, source_type: import_xls,
+     external_id: leumi_310, description: INCOMING TRANSFER}
+  - {user: alice, account: transit, amount: 310, date: 2026-06-10, status: confirmed, source_type: import_bit,
+     external_id: bit_credit_310, description: Transfer, comment: Bob}
+  - {user: alice, account: family_bank, amount: -999, date: 2026-06-30, status: confirmed, source_type: import_xls,
+     external_id: unrelated_line, description: TEST SHOP}

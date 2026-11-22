@@ -1,0 +1,20 @@
+id: statement_lines_are_categorized_by_merchant_rules
+description: Imported lines get a category from the merchant rules (cleaned description); unknown merchants stay uncategorized.
+steps:
+  - statement_import:
+      user: alice
+      lines:
+        - {account: alice_card, amount: -120.5, date: 2026-06-10, external_id: isracard_s1, description: SUPER DEMO 123}
+        - {account: alice_card, amount: -36, date: 2026-06-11, external_id: isracard_c1, description: CAFE DEMO}
+        - {account: family_bank, amount: 9500, date: 2026-06-12, external_id: leumi_sal, description: SALARY DEMO LTD}
+        - {account: alice_card, amount: -15, date: 2026-06-12, external_id: isracard_u1, description: UNKNOWN PLACE}
+      expect_saved: 4
+expected:
+  - {user: alice, account: alice_card, amount: -120.5, date: 2026-06-10, status: confirmed, source_type: import_xls,
+     external_id: isracard_s1, description: SUPER DEMO 123, category: groceries}
+  - {user: alice, account: alice_card, amount: -36, date: 2026-06-11, status: confirmed, source_type: import_xls,
+     external_id: isracard_c1, description: CAFE DEMO, category: restaurants}
+  - {user: alice, account: family_bank, amount: 9500, date: 2026-06-12, status: confirmed, source_type: import_xls,
+     external_id: leumi_sal, description: SALARY DEMO LTD, category: salary}
+  - {user: alice, account: alice_card, amount: -15, date: 2026-06-12, status: confirmed, source_type: import_xls,
+     external_id: isracard_u1, description: UNKNOWN PLACE}

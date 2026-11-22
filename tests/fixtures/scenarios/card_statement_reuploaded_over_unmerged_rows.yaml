@@ -1,0 +1,21 @@
+id: card_statement_reuploaded_over_unmerged_rows
+description: >
+  #15: a card line and its Bit twin, both stored unmerged by older code. Re-uploading the
+  card statement skips the stored line before any matching; the stored rows stay as they are.
+steps:
+  - stored_row: {user: alice, account: alice_card, amount: -300, date: 2026-06-10, external_id: isracard_300, description: BIT TRANSFER}
+  - stored_row: {user: alice, account: alice_card, amount: -300, date: 2026-06-10, external_id: bit_card_300, description: Transfer,
+                 comment: Dana Cohen, source_type: import_bit}
+  - statement_import:
+      user: alice
+      lines:
+        - {account: alice_card, amount: -300, date: 2026-06-10, external_id: isracard_300, description: BIT TRANSFER}
+        - {account: family_bank, amount: -999, date: 2026-06-30, external_id: unrelated_line, description: TEST SHOP}
+      expect_saved: 1
+expected:
+  - {user: alice, account: alice_card, amount: -300, date: 2026-06-10, status: confirmed, source_type: import_xls,
+     external_id: isracard_300, description: BIT TRANSFER}
+  - {user: alice, account: alice_card, amount: -300, date: 2026-06-10, status: confirmed, source_type: import_bit,
+     external_id: bit_card_300, description: Transfer, comment: Dana Cohen}
+  - {user: alice, account: family_bank, amount: -999, date: 2026-06-30, status: confirmed, source_type: import_xls,
+     external_id: unrelated_line, description: TEST SHOP}

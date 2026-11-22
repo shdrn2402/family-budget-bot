@@ -1,0 +1,15 @@
+id: same_account_entry_preferred_over_transit
+description: A Bit line paid by card confirms the pending entry on that card before a pending "paid with Bit" one.
+steps:
+  - manual_entry: {user: alice, item: lunch, amount: 80, account: transit, category: restaurants, date: 2026-06-10, comment: via bit}
+  - manual_entry: {user: alice, item: lunch, amount: 80, account: alice_card, category: restaurants, date: 2026-06-10, comment: by card}
+  - statement_import:
+      user: alice
+      lines:
+        - {account: alice_card, amount: -80, date: 2026-06-11, external_id: bit_new, description: Transfer,
+           comment: Dana Cohen, source_type: import_bit}
+expected:
+  - {user: alice, account: transit, amount: -80, date: 2026-06-10, status: pending, source_type: manual_text,
+     description: lunch, comment: via bit, category: restaurants}
+  - {user: alice, account: alice_card, amount: -80, date: 2026-06-11, status: confirmed, source_type: import_bit,
+     external_id: bit_new, description: Transfer, comment: "lunch, by card, Dana Cohen", category: restaurants}

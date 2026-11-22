@@ -1,0 +1,17 @@
+id: identical_bit_transfers_on_one_day
+description: Two identical Bit transfers on the same day, in one export.
+known_issue: >
+  The Bit parser builds the id from date, account, amount and counterparty, so both lines get the
+  same external_id and the second one is dropped as a duplicate. One real payment is lost.
+steps:
+  - statement_import:
+      user: alice
+      lines:
+        - {account: transit, amount: -25, date: 2026-06-16, external_id: bit_20260616_5_-25.0_Moshe Levi, description: Transfer,
+           comment: Moshe Levi, source_type: import_bit}
+        - {account: transit, amount: -25, date: 2026-06-16, external_id: bit_20260616_5_-25.0_Moshe Levi, description: Transfer,
+           comment: Moshe Levi, source_type: import_bit}
+      expect_saved: 1
+expected:
+  - {user: alice, account: transit, amount: -25, date: 2026-06-16, status: confirmed, source_type: import_bit,
+     external_id: bit_20260616_5_-25.0_Moshe Levi, description: Transfer, comment: Moshe Levi}
