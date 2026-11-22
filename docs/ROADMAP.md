@@ -9,12 +9,12 @@ The project is moving from a Telegram bot with a database to a small, production
 - Orchestration starts with scheduled GitHub Actions and moves to Dagster on the VPS.
 - Infrastructure is managed with Terraform.
 
-Each stage ends in a deployable state with the bot still working.
+Each stage ends in a deployable state with the bot still working. Known problems are tracked as [issues labelled `known-issue`](https://github.com/shdrn2402/family-budget-bot/issues?q=is%3Aissue+label%3Aknown-issue), each with the stage that fixes it.
 
 ## Done: the bot (before the data platform)
 - [x] Manual entry in the `item account amount` format, resolved through an alias database.
 - [x] Statement import (Isracard, Leumi, Bit) with deduplication, bulk categorization and batch upload summaries.
-- [x] Transit (Bit) and cash wallet tracking, with reconciliation between Bit and card/bank statements.
+- [x] Transit (Bit) and cash wallet rows (offsets for cash withdrawals and Bit top-ups), with reconciliation between Bit and card/bank statements. Wallet balances come with the Stage 4 marts.
 - [x] Inline editing, interactive `/history`, `/uncategorized`, localization.
 - [x] Docker deployment with CI/CD to the VPS.
 
@@ -31,8 +31,8 @@ Each stage ends in a deployable state with the bot still working.
 - [ ] Split into packages: `budget_core/` (domain types, parsers, rules), `bot/` (Telegram adapter), `db/` (repositories on a connection pool).
 - [ ] Parsers become pure functions returning typed records, with a parser version and statement-level metadata (statement period, card charge date).
 - [ ] Household-specific values move out of the code into database tables or private config. Seed data is split into a public category tree, private household data and a fake household for tests.
-- [ ] Committed, hand-made statement fixtures for each format, with golden outputs, plus a scenario dataset of named reconciliation cases.
-- [ ] Secret scanning (gitleaks) in pre-commit and CI.
+- [x] Committed, hand-made statement fixtures for each format, with golden outputs (#34), plus a scenario dataset of named reconciliation cases (#36).
+- [x] Secret scanning (gitleaks) in pre-commit and CI (#32).
 
 ## Stage 2: Raw landing zone in S3
 *Goal: every statement file is preserved immutably.*
@@ -50,7 +50,7 @@ Each stage ends in a deployable state with the bot still working.
 *Goal: business logic moves into tested SQL models.*
 - [ ] An idempotent loader appends bronze into `raw` tables.
 - [ ] dbt models: staging, then deduplication, reconciliation, internal transfers and categorization, then marts (transactions, period summaries, wallet balances, data completeness, anomalies).
-- [ ] Category overrides with an explicit scope (one transaction or a whole merchant), which resolves the global alias overwrite in `docs/KNOWN_ISSUES.md`.
+- [ ] Category overrides with an explicit scope (one transaction or a whole merchant), which resolves the global alias overwrite (#37).
 - [ ] `dbt build` runs in CI on the scenario fixtures; the dbt docs site is published.
 - [ ] The bot reads from the marts, and the in-process import path is removed.
 
