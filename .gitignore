@@ -48,3 +48,6 @@ data/*.yaml
 # === Bank Statements ===
 bank_statements/*
 !bank_statements/.gitkeep
+
+# Household gitleaks patterns (real values, never commit)
+.gitleaks.private.toml

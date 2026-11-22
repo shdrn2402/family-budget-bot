@@ -1,0 +1,8 @@
+# Public gitleaks rules for this repo: the default rule set (API keys, tokens,
+# private keys, passwords in URLs, ...). Household-specific values (real names,
+# card digits, user IDs) are checked by .gitleaks.private.toml, which extends
+# this file and is never committed; see .gitleaks.private.example.toml.
+title = "family-budget-bot"
+
+[extend]
+useDefault = true

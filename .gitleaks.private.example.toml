@@ -1,0 +1,24 @@
+# Template for .gitleaks.private.toml (gitignored). Copy it, replace the fake
+# values below with the real ones, and keep the real file out of the repo.
+# CI reads the same content from the GITLEAKS_PRIVATE_CONFIG repository secret.
+#
+# Keep patterns specific: a bare 4-digit number matches dates and amounts
+# everywhere, so card digits are only matched next to card-related words.
+
+[extend]
+path = ".gitleaks.toml"
+
+[[rules]]
+id = "household-user-id"
+description = "Real Telegram user ID"
+regex = '''\b(?:100000001|100000002)\b'''
+
+[[rules]]
+id = "household-name"
+description = "Real family member name"
+regex = '''(?i)\b(?:alice|bob)\b'''
+
+[[rules]]
+id = "household-card-digits"
+description = "Real card digits next to a card-related word"
+regex = '''(?i)(?:card|mask|prefix|кредит|карт)[^\n]{0,40}\b(?:1111|2222)\b|\b(?:1111|2222)\b[^\n]{0,40}(?:card|credit|кредит|карт)'''
