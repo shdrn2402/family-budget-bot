@@ -38,6 +38,7 @@ COPY --chown=budget_user:budget_group "pyproject.toml" "uv.lock" ".python-versio
 RUN uv sync --frozen --no-install-project --no-dev --no-cache
 
 # Copy application files
+COPY --chown=budget_user:budget_group budget_core/ ./budget_core/
 COPY --chown=budget_user:budget_group bot/ ./bot/
 COPY --chown=budget_user:budget_group scripts/ ./scripts/
 COPY --chown=budget_user:budget_group alembic.ini ./alembic.ini

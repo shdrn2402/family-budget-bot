@@ -1,137 +1,86 @@
-import pandas as pd
+"""Statement import for the bot: picks the parser by file name and books the lines.
+
+Parsing itself is in budget_core.parsers (pure, typed, keeps every line). The functions
+here are the bot's adapter on top: they apply today's filters and account assignment
+and return the dicts the import handler saves.
+"""
+
+import logging
 import os
 import re
-from datetime import datetime
-import logging
+from datetime import datetime, time
+
+from budget_core.parsers import bit, isracard, leumi
 
 logger = logging.getLogger(__name__)
+
+# Fixed account IDs, as before; they move to configuration in a later Stage 1 step.
+FAMILY_DEBIT_ACCOUNT_ID = 3
+TRANSIT_ACCOUNT_ID = 5
+
+BIT_BANK_ACCOUNT = 'חשבון בנק'
+BIT_CARD = 'כרטיס אשראי'
+BIT_BALANCE = 'יתרה'
 
 
 class BitCardAccountMissing(Exception):
     """A Bit export needs the uploader's own card account for its card-paid lines."""
 
+
+def _read(file_path) -> bytes:
+    with open(file_path, 'rb') as f:
+        return f.read()
+
+
+def _at_midnight(d) -> datetime:
+    return datetime.combine(d, time())
+
+
 def parse_leumi(file_path):
-    """
-    Parses Bank Leumi .xls file.
-    Format: Sheet 'Activities', Header starts at row 1.
-    Columns: Balance, Value date, Credit, Debit, Transaction, Reference, Code, Date.
-    """
-    df = pd.read_excel(file_path, sheet_name='Activities', header=1, engine='xlrd')
-    
+    """Bank Leumi lines on the family debit account. Card-company lines are skipped:
+    the card statement has their detail."""
     transactions = []
-    for _, row in df.iterrows():
-        # Skip empty rows or opening balance
-        desc = str(row.get('Transaction', '')).strip()
-        if not desc or 'OPENING BALANCE' in desc.upper():
-            continue
-            
-        # Skip Isracard records to avoid duplicates
-        if 'ISRACARD' in desc.upper():
-            logger.info(f"Skipping Isracard record in Bank statement: {desc}")
-            continue
-            
-        # Determine amount (Debit is negative, Credit is positive)
-        debit = row.get('Debit')
-        credit = row.get('Credit')
-        
-        amount = 0
-        try:
-            if pd.notnull(debit) and str(debit).strip() != '':
-                amount = -abs(float(str(debit).replace(',', '')))
-            elif pd.notnull(credit) and str(credit).strip() != '':
-                amount = abs(float(str(credit).replace(',', '')))
-        except ValueError:
-            logger.warning(f"Could not parse amount from row: debit={debit}, credit={credit}")
-            continue
-            
-        if amount == 0:
-            continue
-            
-        # Parse date
-        raw_date = row.get('Date')
-        try:
-            if isinstance(raw_date, datetime):
-                date_obj = raw_date
-            else:
-                date_obj = datetime.strptime(str(raw_date), '%d/%m/%Y')
-        except:
-            logger.warning(f"Could not parse date: {raw_date}")
+    for row in leumi.parse(_read(file_path)).rows:
+        if 'ISRACARD' in row.description.upper():
+            logger.info(f"Skipping Isracard record in Bank statement: {row.description}")
             continue
 
+        # Debit is negative, credit positive; a debit cell wins when both are filled.
+        if row.debit is not None:
+            amount = -abs(float(row.debit))
+        else:
+            amount = abs(float(row.credit))
+        if amount == 0:
+            continue
+
+        date_obj = _at_midnight(row.date)
+        reference = row.reference if row.reference is not None else 'no_ref'
         transactions.append({
             'date': date_obj,
             'amount': amount,
-            'description': desc,
-            'external_id': f"leumi_{row.get('Reference', 'no_ref')}_{date_obj.strftime('%Y%m%d')}_{amount}",
-            'account_id': 3, # Family Debit
+            'description': row.description,
+            'external_id': f"leumi_{reference}_{date_obj.strftime('%Y%m%d')}_{amount}",
+            'account_id': FAMILY_DEBIT_ACCOUNT_ID,
             'source_type': 'import_xls'
         })
-        
     return transactions
 
+
 def parse_isracard(file_path, account_id=2):
-    """
-    Parses Isracard .xlsx file.
-    Contains multiple tables on one sheet.
-    """
-    # Read raw to find table boundaries
-    raw_df = pd.read_excel(file_path, header=None, engine='openpyxl')
-    
+    """Isracard charges on the given card account. Pending lines (no voucher yet) are
+    skipped: they come back with a voucher on next month's statement."""
     transactions = []
-    
-    # Tables often start after these keywords
-    # 1. 'עסקאות למועד חיוב' (Charges for payment date)
-    # 2. 'עסקאות בחיוב מחוץ למועד' (Immediate charges/foreign)
-    
-    
-    for i, row in raw_df.iterrows():
-        row_list = [str(x) for x in row.tolist()]
-        
-        # Check if this is a header row
-        if 'תאריך רכישה' in row_list and 'שם בית עסק' in row_list:
-            # We found a table header!
-            header_idx = row_list.index('תאריך רכישה')
-            
-            # Read from this point until the end of this table (usually indicated by total or empty row)
-            # For simplicity, we just iterate rows from i+1 until we hit an empty row or a total
-            for j in range(i + 1, len(raw_df)):
-                sub_row = raw_df.iloc[j]
-                
-                # Stop if it looks like a total or end of table
-                if pd.isnull(sub_row[header_idx]) or 'סה"כ' in str(sub_row.tolist()):
-                    break
-                
-                # Extract data
-                # Based on deep inspection:
-                # 0: Date, 1: Description, 2: Amount, 3: Currency, 4: ChargeAmount, 5: ChargeCurrency, 6: Voucher (מס' שובר)
-                try:
-                    voucher = str(sub_row[6]).strip()
-                    if voucher.lower() == 'nan' or not voucher:
-                        continue
-                        
-                    raw_date = str(sub_row[0])
-                    # Format is DD.MM.YY
-                    date_obj = datetime.strptime(raw_date, '%d.%m.%y')
-                    
-                    desc = str(sub_row[1])
-                    try:
-                        # Clean amount string from commas and spaces
-                        clean_amount = str(sub_row[4]).replace(',', '').strip()
-                        charge_amount = float(clean_amount)
-                    except (ValueError, TypeError):
-                        continue
-                    
-                    transactions.append({
-                        'date': date_obj,
-                        'amount': -abs(charge_amount), # Always expense for cards in these tables
-                        'description': desc,
-                        'external_id': f"isracard_{voucher}",
-                        'account_id': account_id,
-                        'source_type': 'import_xls'
-                    })
-                except Exception:
-                    continue
-                    
+    for row in isracard.parse(_read(file_path)).rows:
+        if row.voucher is None or row.charge_amount is None:
+            continue
+        transactions.append({
+            'date': _at_midnight(row.purchase_date),
+            'amount': -abs(float(row.charge_amount)),  # card charges are always expenses
+            'description': row.merchant,
+            'external_id': f"isracard_{row.voucher}",
+            'account_id': account_id,
+            'source_type': 'import_xls'
+        })
     return transactions
 
 def import_excel_file(file_path, hint=None, bit_card_account_id: int | None = None):
@@ -175,99 +124,50 @@ def import_excel_file(file_path, hint=None, bit_card_account_id: int | None = No
 
 def parse_bit_csv(file_path, account_id):
     """
-    Parses Bit CSV format.
-    Columns: Status, Description, Fee Amount, Amount, Payment Method, Credit/Debit, From/To, Date
+    Done Bit lines, booked by payment method:
+    - Bit balance -> transit account; card -> `account_id` (the uploader's card);
+      bank account -> family debit account.
+    - A withdrawal to the bank account becomes two lines: out of transit, into the bank.
     """
-    try:
-        df = pd.read_csv(file_path, on_bad_lines='skip', skipinitialspace=True, index_col=False)
-    except Exception as e:
-        logger.error(f"Error reading Bit CSV: {e}")
-        return []
-        
     transactions = []
-    
-    for _, row in df.iterrows():
-        status = str(row.get('Status', '')).strip()
-        if status.lower() != 'done':
+    for row in bit.parse(_read(file_path)).rows:
+        if row.status.lower() != 'done':
             continue
-            
-        desc = str(row.get('Description', '')).strip()
-        from_to = str(row.get('From/To', '')).strip()
-        payment_method = str(row.get('Payment Method', '')).strip()
-        credit_debit = str(row.get('Credit/Debit', '')).strip()
-        
-        try:
-            amount_val = float(str(row.get('Amount', '0')).replace(',', ''))
-        except ValueError:
-            continue
-            
+        amount_val = float(row.amount)
         if amount_val == 0:
             continue
-            
-        # Parse date (format is typically DD.MM.YY)
-        raw_date = row.get('Date')
-        try:
-            if isinstance(raw_date, datetime):
-                date_obj = raw_date
-            else:
-                date_obj = datetime.strptime(str(raw_date).strip().strip(','), '%d.%m.%y')
-        except Exception:
-            logger.warning(f"Could not parse Bit date: {raw_date}")
-            continue
-            
-        # Determine base sign based strictly on Credit/Debit column
-        base_amount = abs(amount_val) if credit_debit.lower() == 'credit' else -abs(amount_val)
-        
-        # Determine account and specific logic
-        if payment_method == 'חשבון בנק':
-            if desc.lower() == 'withdrawal to bank account' or 'withdrawal' in desc.lower():
-                # This is a transfer from Transit to Bank. We need two lines:
-                # 1. Expense from Transit
-                transactions.append({
-                    'date': date_obj,
-                    'amount': -abs(amount_val),
-                    'description': desc,
-                    'comment': from_to,
-                    'external_id': f"bit_{date_obj.strftime('%Y%m%d')}_5_{-abs(amount_val)}_{from_to}",
-                    'account_id': 5, # Transit
-                    'source_type': 'import_bit',
-                    'status': 'confirmed'
-                })
-                # 2. Income to Bank
-                transactions.append({
-                    'date': date_obj,
-                    'amount': abs(amount_val),
-                    'description': desc,
-                    'comment': from_to,
-                    'external_id': f"bit_{date_obj.strftime('%Y%m%d')}_3_{abs(amount_val)}_{from_to}",
-                    'account_id': 3, # Family Debit (Bank)
-                    'source_type': 'import_bit',
-                    'status': 'confirmed'
-                })
+
+        date_obj = _at_midnight(row.date)
+        day = date_obj.strftime('%Y%m%d')
+        from_to = row.counterparty
+        base_amount = abs(amount_val) if row.direction.lower() == 'credit' else -abs(amount_val)
+
+        def line(account, amount):
+            return {
+                'date': date_obj,
+                'amount': amount,
+                'description': row.description,
+                'comment': from_to,
+                'external_id': f"bit_{day}_{account}_{amount}_{from_to}",
+                'account_id': account,
+                'source_type': 'import_bit',
+                'status': 'confirmed'
+            }
+
+        if row.payment_method == BIT_BANK_ACCOUNT:
+            if 'withdrawal' in row.description.lower():
+                # Transfer from transit to the bank: out of one, into the other.
+                transactions.append(line(TRANSIT_ACCOUNT_ID, -abs(amount_val)))
+                transactions.append(line(FAMILY_DEBIT_ACCOUNT_ID, abs(amount_val)))
                 continue
-            else:
-                # Direct income/expense to Bank account
-                target_account = 3
-                amount = base_amount
-        elif payment_method == 'כרטיס אשראי':
+            target_account = FAMILY_DEBIT_ACCOUNT_ID
+        elif row.payment_method == BIT_CARD:
             target_account = account_id
-            amount = base_amount
-        elif payment_method == 'יתרה':
-            target_account = 5
-            amount = base_amount
+        elif row.payment_method == BIT_BALANCE:
+            target_account = TRANSIT_ACCOUNT_ID
         else:
-            logger.warning(f"Unknown payment method in Bit CSV: {payment_method}")
+            logger.warning(f"Unknown payment method in Bit CSV: {row.payment_method}")
             continue
-            
-        transactions.append({
-            'date': date_obj,
-            'amount': amount,
-            'description': desc,
-            'comment': from_to,
-            'external_id': f"bit_{date_obj.strftime('%Y%m%d')}_{target_account}_{amount}_{from_to}",
-            'account_id': target_account,
-            'source_type': 'import_bit',
-            'status': 'confirmed'
-        })
-        
+
+        transactions.append(line(target_account, base_amount))
     return transactions
