@@ -108,7 +108,26 @@ docker run --rm -d --name budget-test-pg -p 127.0.0.1:55432:5432 -e POSTGRES_PAS
 TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:55432/postgres uv run pytest
 ```
 
-### 4. Restoring a Backup
+### 4. Secret Scanning
+[gitleaks](https://github.com/gitleaks/gitleaks) blocks secrets (API keys, tokens, passwords) and real household values (names, card digits, user IDs) from being committed. The same script, `.github/scripts/secret_scan.sh`, runs in two places:
+*   **Locally,** as a pre-commit hook on staged changes. It is fast feedback, but it can be skipped, so CI is the real check.
+*   **In CI,** inside **Run Tests**, on the commits of each pull request and each push to `main`. Older history predates the check and isn't scanned.
+
+Findings are always redacted, because the CI logs of a public repo are public.
+
+**Rules:**
+*   `.gitleaks.toml` (committed) extends gitleaks' default rules.
+*   `.gitleaks.private.toml` (gitignored) extends it with patterns for the real household values. When the file is missing, only the public rules apply, and the scan prints a notice. In CI, the same content comes from the `GITLEAKS_PRIVATE_CONFIG` repository secret.
+
+**Setup (once per clone):**
+1. Install gitleaks 8.30.1 or later (a release binary from GitHub on your `PATH`, or `brew install gitleaks`).
+2. Enable the hook: `uv run pre-commit install`.
+3. Copy `.gitleaks.private.example.toml` to `.gitleaks.private.toml` and replace the fake values with the real ones. Keep the patterns specific: card digits only next to card-related words, so dates and amounts don't match.
+4. To update the CI copy, paste the same file into the `GITLEAKS_PRIVATE_CONFIG` repository secret (**Settings → Secrets and variables → Actions**).
+
+GitHub push protection is also enabled for the repo. It refuses pushes that contain known token formats (for example AWS keys or Telegram bot tokens).
+
+### 5. Restoring a Backup
 Restoring is a manual, explicit operation. Get a backup (for example from the bot's `/backup` command, or a pre-deploy `backup_before_deploy_*.dump` on the server), then run from the directory containing `compose.yaml`:
 ```bash
 ./scripts/restore_db.sh path/to/backup.sql   # or .dump

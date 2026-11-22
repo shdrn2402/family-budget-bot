@@ -77,3 +77,36 @@ def test_tests_are_linted_before_pytest_runs() -> None:
     lint = steps.index("uv run ruff check tests")
     pytest_step = next(i for i, run in enumerate(steps) if run.startswith("uv run pytest"))
     assert lint < pytest_step
+
+
+def _test_steps() -> list[dict[str, Any]]:
+    return _workflow()["jobs"]["test"]["steps"]
+
+
+def _step(name: str) -> dict[str, Any]:
+    return next(step for step in _test_steps() if step.get("name") == name)
+
+
+def test_test_job_checks_out_full_history_for_the_secret_scan() -> None:
+    assert _test_steps()[0]["with"]["fetch-depth"] == 0
+
+
+def test_gitleaks_install_is_pinned_and_checksum_verified() -> None:
+    install = _step("Install gitleaks")
+    assert install["env"]["GITLEAKS_VERSION"] == "8.30.1"
+    assert len(install["env"]["GITLEAKS_SHA256"]) == 64
+    assert "sha256sum -c" in install["run"]
+
+
+def test_secret_scan_uses_the_private_patterns_secret_and_scans_only_new_commits() -> None:
+    scan = _step("Scan new commits for secrets")
+    assert scan["env"]["GITLEAKS_PRIVATE_CONFIG"] == "${{ secrets.GITLEAKS_PRIVATE_CONFIG }}"
+    assert "github.event.pull_request.base.sha" in scan["env"]["SCAN_BASE"]
+    assert "github.event.before" in scan["env"]["SCAN_BASE"]
+    assert '.github/scripts/secret_scan.sh range "$SCAN_BASE" "$SCAN_HEAD"' in scan["run"]
+    assert "rm -f .gitleaks.private.toml" in scan["run"]
+
+
+def test_secret_scan_runs_before_dependencies_and_tests() -> None:
+    names = [step.get("name") for step in _test_steps()]
+    assert names.index("Scan new commits for secrets") < names.index("Install dependencies")
