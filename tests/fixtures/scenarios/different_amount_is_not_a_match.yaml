@@ -1,0 +1,13 @@
+id: different_amount_is_not_a_match
+description: An amount that differs by one agora is a different purchase.
+steps:
+  - manual_entry: {user: alice, item: lunch, amount: 50, account: alice_card, category: restaurants, date: 2026-06-10}
+  - statement_import:
+      user: alice
+      lines:
+        - {account: alice_card, amount: -50.01, date: 2026-06-10, external_id: isracard_other_amount, description: TEST SHOP}
+expected:
+  - {user: alice, account: alice_card, amount: -50, date: 2026-06-10, status: pending, source_type: manual_text,
+     description: lunch, category: restaurants}
+  - {user: alice, account: alice_card, amount: -50.01, date: 2026-06-10, status: confirmed, source_type: import_xls,
+     external_id: isracard_other_amount, description: TEST SHOP}

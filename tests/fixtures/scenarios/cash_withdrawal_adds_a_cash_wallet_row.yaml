@@ -1,0 +1,13 @@
+id: cash_withdrawal_adds_a_cash_wallet_row
+description: An ATM withdrawal on the bank statement is a transfer; an offsetting credit is added to the shared cash wallet.
+steps:
+  - statement_import:
+      user: alice
+      lines:
+        - {account: family_bank, amount: -500, date: 2026-06-10, external_id: leumi_atm, description: "MATRIX ATM'S 4402"}
+      expect_saved: 2
+expected:
+  - {user: alice, account: family_bank, amount: -500, date: 2026-06-10, status: confirmed, source_type: import_xls,
+     external_id: leumi_atm, description: "MATRIX ATM'S 4402", category: cash_withdrawal}
+  - {user: alice, account: shared_cash, amount: 500, date: 2026-06-10, status: confirmed, source_type: import_xls,
+     external_id: leumi_atm_offset, description: "MATRIX ATM'S 4402", category: cash_withdrawal}

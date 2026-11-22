@@ -1,0 +1,19 @@
+id: late_statement_line_is_a_second_row
+description: Statement lines 4 days after or before the manual entry don't match it.
+known_issue: >
+  A statement posted more than 3 days after the purchase leaves the manual entry pending next to
+  the statement row, so the purchase is counted twice until someone deletes one of them.
+steps:
+  - manual_entry: {user: alice, item: lunch, amount: 50, account: alice_card, category: restaurants, date: 2026-06-10}
+  - statement_import:
+      user: alice
+      lines:
+        - {account: alice_card, amount: -50, date: 2026-06-14, external_id: isracard_too_late, description: TEST SHOP}
+        - {account: alice_card, amount: -50, date: 2026-06-06, external_id: isracard_too_early, description: TEST SHOP}
+expected:
+  - {user: alice, account: alice_card, amount: -50, date: 2026-06-10, status: pending, source_type: manual_text,
+     description: lunch, category: restaurants}
+  - {user: alice, account: alice_card, amount: -50, date: 2026-06-14, status: confirmed, source_type: import_xls,
+     external_id: isracard_too_late, description: TEST SHOP}
+  - {user: alice, account: alice_card, amount: -50, date: 2026-06-06, status: confirmed, source_type: import_xls,
+     external_id: isracard_too_early, description: TEST SHOP}
