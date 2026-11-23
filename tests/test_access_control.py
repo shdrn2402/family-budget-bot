@@ -97,7 +97,7 @@ async def test_backup_runs_for_admin() -> None:
                return_value={"id": 42, "name": "x", "is_admin": True}), \
          patch("bot.handlers.admin.create_database_dump", new_callable=AsyncMock,
                return_value=None) as mock_dump, \
-         patch("bot.handlers.admin.export_aliases_to_yaml", new_callable=AsyncMock, return_value=None):
+         patch("bot.handlers.admin.export_household_to_yaml", new_callable=AsyncMock, return_value=None):
         await backup_handler(update, MagicMock())
 
     mock_dump.assert_awaited_once()

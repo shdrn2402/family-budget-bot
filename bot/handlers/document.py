@@ -5,6 +5,7 @@ from datetime import datetime
 from telegram import Update, Message
 from telegram.ext import ContextTypes
 from bot.services.importer import BitCardAccountMissing, import_excel_file
+from budget_core.household import HouseholdNotLoaded
 from db import accounts, merchant_rules, pool
 from db.transactions import latest_date, save_statement_rows
 from bot.services.statement_batch import prepare_statement_batch
@@ -143,6 +144,7 @@ async def process_batch(
     # Card-paid lines in a Bit export belong to the uploader's own card.
     async with pool.connection() as conn:
         card_account = await accounts.find_owned_card(conn, user_id)
+        roles = await accounts.load_roles(conn)
     bit_card_account_id = card_account["id"] if card_account else None
 
     # 1. Download and parse all documents
@@ -158,7 +160,9 @@ async def process_batch(
             await file.download_to_drive(file_path)
             
             # Parse file
-            transactions = import_excel_file(file_path, hint=caption, bit_card_account_id=bit_card_account_id)
+            transactions = import_excel_file(
+                file_path, roles, hint=caption, bit_card_account_id=bit_card_account_id
+            )
             
             if transactions:
                 # Pre-filter for Bit statements based on latest DB date
@@ -220,13 +224,21 @@ async def process_batch(
     inserted_count = 0
     try:
         async with pool.connection() as conn:
-            # Load aliases to auto-categorize
-            db_aliases = await merchant_rules.get_all(conn)
+            # The household's rules and names, to categorize the lines
+            rules = await merchant_rules.get_rules(conn)
+            names = await merchant_rules.get_names(conn)
 
-            all_transactions = prepare_statement_batch(all_transactions, db_aliases)
+            all_transactions = prepare_statement_batch(all_transactions, rules, names, roles)
 
             # Save to DB (one atomic batch)
             inserted_count = await save_statement_rows(conn, user_id, all_transactions)
+    except HouseholdNotLoaded as missing:
+        logger.error(f"Import for user {user_id} needs household data: {missing}")
+        try:
+            await status_msg.edit_text(str(missing))
+        except Exception:
+            pass
+        return
     except Exception as db_err:
         logger.error(f"Database error during batch saving for user {user_id}: {db_err}", exc_info=True)
         try:

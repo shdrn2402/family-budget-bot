@@ -18,7 +18,7 @@ import psycopg
 import pytest
 import yaml
 
-from db import merchant_rules, transactions
+from db import accounts, merchant_rules, transactions
 from bot.services.expense import save_expense_item
 from bot.services.statement_batch import prepare_statement_batch
 from tests.scenario_loader import Household, Scenario, load_household, load_scenario, normalize_row, scenario_paths
@@ -27,16 +27,17 @@ HOUSEHOLD = load_household()
 
 
 async def _apply_household(db: psycopg.AsyncConnection, household: Household) -> None:
-    """Replace the seed's household data with the fake household (accounts keep their fixed ids)."""
+    """Load the fake household (accounts with fixed ids and roles, merchant rules) on top of the seed."""
     for key, user_id in household.users.items():
         await db.execute("INSERT INTO users (id, name) VALUES (%s, %s)", (user_id, key.title()))
     for account in household.accounts.values():
         owner = household.users.get(account.get("owner")) if account.get("owner") else None
         await db.execute(
-            "INSERT INTO accounts (id, name, type, owner_id) VALUES (%s, %s, %s, %s) "
-            "ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, type = EXCLUDED.type, owner_id = EXCLUDED.owner_id",
+            "INSERT INTO accounts (id, name, type, owner_id, role) VALUES (%s, %s, %s, %s, %s) "
+            "ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, type = EXCLUDED.type, owner_id = EXCLUDED.owner_id, "
+            "role = EXCLUDED.role",
             (account["id"], psycopg.types.json.Jsonb({"en": account["name"], "ru": account["name"]}),
-             account["type"], owner),
+             account["type"], owner, account.get("role")),
         )
     await db.execute("SELECT setval('accounts_id_seq', (SELECT max(id) FROM accounts))")
     await db.execute("DELETE FROM account_aliases")
@@ -84,7 +85,8 @@ async def _run_step(db: psycopg.AsyncConnection, household: Household, kind: str
 
     elif kind == "statement_import":
         lines = [_statement_line(household, line) for line in step["lines"]]
-        batch = prepare_statement_batch(lines, await merchant_rules.get_all(db))
+        batch = prepare_statement_batch(lines, await merchant_rules.get_rules(db), await merchant_rules.get_names(db),
+                                        await accounts.load_roles(db))
         saved = await transactions.save_statement_rows(db, user_id, batch)
         if "expect_saved" in step:
             assert saved == step["expect_saved"], f"saved {saved} rows"

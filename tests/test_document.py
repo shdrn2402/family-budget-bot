@@ -2,6 +2,18 @@ import pytest
 import asyncio
 from unittest.mock import AsyncMock, patch, MagicMock
 
+from budget_core.categorize import MerchantRule
+from budget_core.household import AccountRoles
+
+# Fake household data, as db.accounts.load_roles returns it.
+ROLES = AccountRoles(by_role={"default_card": 1, "bank": 3, "shared_cash": 4, "transit": 5})
+
+
+@pytest.fixture(autouse=True)
+def household_roles():
+    with patch("db.accounts.load_roles", new_callable=AsyncMock, return_value=ROLES):
+        yield
+
 try:
     from bot.handlers.document import document_handler, DEBOUNCE_JOBS
 except ImportError:
@@ -43,7 +55,7 @@ async def test_document_handler_success():
          patch("bot.handlers.document.save_statement_rows") as mock_save, \
          patch("bot.handlers.document.create_database_dump", new_callable=AsyncMock) as mock_backup, \
          patch("bot.handlers.document.check_access", return_value=True), \
-         patch("db.merchant_rules.get_all", new_callable=AsyncMock) as mock_aliases, \
+         patch("db.merchant_rules.get_rules", new_callable=AsyncMock) as mock_aliases, \
          patch("db.accounts.find_owned_card", new_callable=AsyncMock, return_value={"id": 7}), \
          patch("asyncio.sleep", new_callable=AsyncMock):
          
@@ -51,7 +63,7 @@ async def test_document_handler_success():
         mock_import.return_value = [{'date': '2026-05-06', 'amount': -10, 'description': 'Test', 'account_id': 2}]
         mock_save.return_value = 1 # 1 inserted row
         mock_backup.return_value = "/app/backups/db_backup_test.sql"
-        mock_aliases.return_value = {}
+        mock_aliases.return_value = []
         
         await document_handler(update, context)
         
@@ -67,7 +79,7 @@ async def test_document_handler_success():
         mock_backup.assert_called_once()
         
         # Verify parsing was called with our hint from caption
-        mock_import.assert_called_once_with("temp_imports/statement.xlsx", hint="isracard", bit_card_account_id=7)
+        mock_import.assert_called_once_with("temp_imports/statement.xlsx", ROLES, hint="isracard", bit_card_account_id=7)
         
         # Verify save to db
         mock_save.assert_called_once()
@@ -111,7 +123,7 @@ async def test_document_handler_csv_success():
          patch("bot.handlers.document.save_statement_rows") as mock_save, \
          patch("bot.handlers.document.create_database_dump", new_callable=AsyncMock) as mock_backup, \
          patch("bot.handlers.document.check_access", return_value=True), \
-         patch("db.merchant_rules.get_all", new_callable=AsyncMock) as mock_aliases, \
+         patch("db.merchant_rules.get_rules", new_callable=AsyncMock) as mock_aliases, \
          patch("db.accounts.find_owned_card", new_callable=AsyncMock, return_value={"id": 7}), \
          patch("asyncio.sleep", new_callable=AsyncMock):
          
@@ -119,7 +131,7 @@ async def test_document_handler_csv_success():
         mock_import.return_value = [{'date': '2026-05-06', 'amount': -10, 'description': 'Test Bit', 'account_id': 1}]
         mock_save.return_value = 1
         mock_backup.return_value = "/app/backups/db_backup_test.sql"
-        mock_aliases.return_value = {}
+        mock_aliases.return_value = []
         
         await document_handler(update, context)
         
@@ -127,7 +139,7 @@ async def test_document_handler_csv_success():
         task = DEBOUNCE_JOBS[123]['task']
         await task
         
-        mock_import.assert_called_once_with("temp_imports/bit_transactions.csv", hint="bit", bit_card_account_id=7)
+        mock_import.assert_called_once_with("temp_imports/bit_transactions.csv", ROLES, hint="bit", bit_card_account_id=7)
 
 
 @pytest.mark.asyncio
@@ -211,7 +223,7 @@ async def test_document_handler_debounce_batch():
          patch("bot.handlers.document.save_statement_rows") as mock_save, \
          patch("bot.handlers.document.create_database_dump", new_callable=AsyncMock) as mock_backup, \
          patch("bot.handlers.document.check_access", return_value=True), \
-         patch("db.merchant_rules.get_all", new_callable=AsyncMock) as mock_aliases, \
+         patch("db.merchant_rules.get_rules", new_callable=AsyncMock) as mock_aliases, \
          patch("asyncio.sleep", new_callable=AsyncMock):
 
         mock_import.side_effect = [
@@ -220,7 +232,7 @@ async def test_document_handler_debounce_batch():
         ]
         mock_save.return_value = 2
         mock_backup.return_value = "/app/backups/db_backup_test.sql"
-        mock_aliases.return_value = {}
+        mock_aliases.return_value = []
 
         # Trigger first document
         await document_handler(update1, context)
@@ -284,7 +296,7 @@ async def test_document_internal_transfers():
     with patch("bot.handlers.document.import_excel_file") as mock_import, \
          patch("bot.handlers.document.save_statement_rows") as mock_save, \
          patch("bot.handlers.document.create_database_dump", new_callable=AsyncMock) as mock_backup, \
-         patch("db.merchant_rules.get_all", new_callable=AsyncMock) as mock_aliases, \
+         patch("db.merchant_rules.get_rules", new_callable=AsyncMock) as mock_aliases, \
          patch("bot.handlers.document.check_access", return_value=True), \
          patch("asyncio.sleep", new_callable=AsyncMock):
 
@@ -295,13 +307,10 @@ async def test_document_internal_transfers():
             {'date': '2026-05-08', 'amount': 70.0, 'description': 'BIT RCPT', 'external_id': 'id_15_pos', 'account_id': 1}
         ]
         
-        # We need auto_categorize to assign 43 and 15 based on description
-        # Mock aliases to simulate DB state
-        mock_aliases.return_value = {
-            'atm cash deposit': 43,
-            'bit payment': 15,
-            'bit rcpt': 15
-        }
+        # Rules (as in the database) that give these lines categories 43 and 15
+        mock_aliases.return_value = [
+            MerchantRule('atm cash deposit', 43), MerchantRule('bit payment', 15), MerchantRule('bit rcpt', 15)
+        ]
 
         mock_save.return_value = 6  # 3 originals + 3 offsets
         mock_backup.return_value = "/app/backups/db_backup_test.sql"
@@ -378,9 +387,9 @@ async def test_document_filters_old_bit_transactions():
          patch("bot.handlers.document.create_database_dump", new_callable=AsyncMock), \
          patch("bot.handlers.document.check_access", return_value=True), \
          patch("bot.handlers.document.latest_date", new_callable=AsyncMock) as mock_get_date, \
-         patch("db.merchant_rules.get_all", new_callable=AsyncMock) as mock_aliases:
+         patch("db.merchant_rules.get_rules", new_callable=AsyncMock) as mock_aliases:
         
-        mock_aliases.return_value = {}
+        mock_aliases.return_value = []
         # Mock max date in DB to be May 5, 2026 (date object)
         mock_get_date.return_value = datetime.date(2026, 5, 5)
 
@@ -397,3 +406,37 @@ async def test_document_filters_old_bit_transactions():
         assert len(saved_txs) == 2
         assert saved_txs[0]['date'] == datetime.datetime(2026, 5, 5)
         assert saved_txs[1]['date'] == datetime.datetime(2026, 5, 10)
+
+
+@pytest.mark.asyncio
+async def test_an_offset_without_household_roles_is_reported_and_nothing_is_saved():
+    """#72: without the household file's roles, the upload says what to load instead of a database error."""
+    DEBOUNCE_JOBS.clear()
+    update = MagicMock()
+    doc = MagicMock()
+    doc.file_name = "FibiSave.xls"
+    doc.file_id = "file_126"
+    update.message.document = doc
+    update.message.caption = None
+    update.effective_user.id = 123
+    update.effective_user.language_code = "en"
+    status_msg = MagicMock()
+    status_msg.edit_text = AsyncMock()
+    update.message.reply_text = AsyncMock(return_value=status_msg)
+    context = MagicMock()
+    context.bot.get_file = AsyncMock(return_value=AsyncMock())
+    atm_line = {'date': '2026-05-06', 'amount': -100.0, 'description': 'ATM', 'external_id': 'a', 'account_id': 3}
+
+    with patch("bot.handlers.document.import_excel_file", return_value=[atm_line]), \
+         patch("db.accounts.load_roles", new_callable=AsyncMock, return_value=AccountRoles()), \
+         patch("db.merchant_rules.get_rules", new_callable=AsyncMock, return_value=[MerchantRule("ATM", 43)]), \
+         patch("bot.handlers.document.save_statement_rows", new_callable=AsyncMock) as mock_save, \
+         patch("bot.handlers.document.create_database_dump", new_callable=AsyncMock), \
+         patch("bot.handlers.document.check_access", return_value=True), \
+         patch("asyncio.sleep", new_callable=AsyncMock):
+        await document_handler(update, context)
+        await DEBOUNCE_JOBS[123]['task']
+
+    mock_save.assert_not_called()
+    report = status_msg.edit_text.call_args[0][0]
+    assert "shared_cash" in report and "load_household.py" in report
