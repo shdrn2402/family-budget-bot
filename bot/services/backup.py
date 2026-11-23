@@ -3,7 +3,7 @@ import yaml
 import logging
 from datetime import datetime
 from bot.config import Config
-from bot.database import get_all_item_aliases
+from db import aliases, pool
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +62,8 @@ async def export_aliases_to_yaml() -> str | None:
     Returns the file path to the yaml or None if it failed.
     """
     try:
-        aliases_dict = await get_all_item_aliases()
+        async with pool.connection() as conn:
+            aliases_dict = await aliases.get_all(conn)
         if not aliases_dict:
             logger.warning("No aliases found in database.")
             aliases_dict = {}

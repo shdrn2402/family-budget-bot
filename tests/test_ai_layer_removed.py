@@ -89,10 +89,8 @@ async def test_unparseable_text_gets_a_format_hint_and_nothing_is_saved() -> Non
         {"original": "coffee nosuchaccount 5", "error": "unknown_account", "account_alias": "nosuchaccount"},
     ]
     with patch("bot.handlers.expense.check_access", new_callable=AsyncMock, return_value=True), \
-         patch("bot.handlers.expense.get_db_connection") as mock_db, \
          patch("bot.handlers.expense.process_expense_text", new_callable=AsyncMock, return_value=errors), \
-         patch("bot.services.expense.save_expense_item", new_callable=AsyncMock) as mock_save:
-        mock_db.return_value.__aenter__.return_value = MagicMock()
+         patch("bot.handlers.expense.save_expense_item", new_callable=AsyncMock) as mock_save:
         await expense_message_handler(update, MagicMock())
 
     mock_save.assert_not_called()
