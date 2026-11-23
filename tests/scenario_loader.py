@@ -27,7 +27,7 @@ STEP_FIELDS = {
 LINE_FIELDS = ({"account", "amount", "date", "external_id", "description"}, {"comment", "source_type"})
 # The ledger columns a scenario's expected rows are compared on. A missing field means null.
 ROW_FIELDS = ({"user", "account", "amount", "date", "status", "source_type", "description"},
-              {"external_id", "comment", "category"})
+              {"external_id", "merged_external_id", "comment", "category"})
 SCENARIO_FIELDS = ({"id", "description", "steps", "expected"}, {"known_issue"})
 
 
