@@ -64,3 +64,54 @@ def test_auto_categorize_dan_deal() -> None:
     
     assert auto_categorize("דן דיל", -30.0, db_aliases) == 17  # Snacks
     assert auto_categorize("דן דיל", -60.0, db_aliases) == 24  # Household
+
+
+# --- Current behaviour pinned by the categorization audit (#64) ----------------------------
+# These describe what the code does today, not what it should do. Each names its known issue.
+
+FUEL, SNACKS, HOUSEHOLD, RESTAURANTS = 26, 17, 24, 19
+
+
+def test_current_behaviour_partial_match_takes_the_first_rule_in_dict_order() -> None:
+    """#65: two partially matching rules; the winner is whichever comes first in the dict, i.e. the
+    unordered row order of merchant_rules.get_all(), which changes when a rule is learned again."""
+    assert auto_categorize("SHOP ALPHA", -10.0, {"SHOP": 1, "ALPHA": 2}) == 1
+    assert auto_categorize("SHOP ALPHA", -10.0, {"ALPHA": 2, "SHOP": 1}) == 2
+
+
+def test_current_behaviour_partial_match_works_both_ways_with_no_minimum_length() -> None:
+    """#66: a 2-letter rule matches any merchant containing it, and a short merchant name
+    matches any rule that contains it."""
+    assert auto_categorize("BIG MARKET", -10.0, {"AR": 6}) == 6
+    assert auto_categorize("SHOP", -10.0, {"SHOPPING MALL": 3}) == 3
+
+
+def test_current_behaviour_learned_rules_match_through_the_reverse_direction() -> None:
+    """#66: the inline menu stores the raw description in lower case, digits included. A later line
+    only matches because its cleaned name ('WOLT TLV') is inside that stored pattern."""
+    learned = {"wolt tlv 1234": RESTAURANTS}
+    assert clean_business_name("WOLT TLV 5678") == "WOLT TLV"
+    assert auto_categorize("WOLT TLV 5678", -10.0, learned) == RESTAURANTS
+    assert auto_categorize("TLV", -10.0, learned) == RESTAURANTS  # any name inside the pattern
+
+
+def test_current_behaviour_amount_rules_beat_learned_rules_and_match_inside_words() -> None:
+    """#67: the hard-coded amount rules run before merchant rules, match their keyword anywhere,
+    and compare the absolute amount strictly."""
+    corrected = {"פזגז": HOUSEHOLD}  # the user taught the bot this merchant's category
+    assert auto_categorize("פזגז", -250.0, corrected) == FUEL  # 'פז' inside the name wins anyway
+    assert auto_categorize("פזגז", -80.0, corrected) == SNACKS
+    assert auto_categorize("YELLOWSTONE CAFE", -30.0, {"YELLOWSTONE CAFE": RESTAURANTS}) == SNACKS
+    assert auto_categorize("YELLOW", -100.0, {}) == SNACKS  # strictly above 100 is fuel
+    assert auto_categorize("YELLOW", -100.01, {}) == FUEL
+    assert auto_categorize("דן דיל", -50.0, {}) == SNACKS
+    assert auto_categorize("דן דיל", 60.0, {}) == HOUSEHOLD  # a refund counts by its absolute value
+
+
+def test_current_behaviour_brand_names_match_anywhere_and_digits_are_dropped() -> None:
+    """#68: brand normalization looks for the brand anywhere in the name, and every digit is removed."""
+    assert clean_business_name("KFCX STORE") == "KFC"
+    assert clean_business_name("AKSP COMPUTERS") == "KSP"
+    assert clean_business_name("7-ELEVEN") == "ELEVEN"
+    assert clean_business_name("123456") == ""
+    assert auto_categorize("123456", -10.0, {"123456": 1}) is None  # an all-digit name is never categorized

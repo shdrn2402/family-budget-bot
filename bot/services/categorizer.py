@@ -1,6 +1,8 @@
 import re
-import pandas as pd
+from dataclasses import dataclass
 from typing import Optional
+
+import pandas as pd
 
 def clean_business_name(name: str) -> str:
     """
@@ -95,49 +97,72 @@ def clean_fibi_business_name(name: str) -> str:
             
     return clean if len(clean) > 1 else ""
 
-def auto_categorize(raw_name: str, amount: float, db_aliases: dict[str, int]) -> Optional[int]:
+@dataclass(frozen=True)
+class CategoryMatch:
+    """How a statement line got (or didn't get) its category. Used by auto_categorize and the audit."""
+
+    category_id: Optional[int]
+    # 'empty_name', 'amount_rule', 'exact', 'exact_raw', 'partial' or 'none'
+    step: str
+    # For 'partial': the categories of every partially matching rule, in rule order (the first wins).
+    partial_categories: tuple[int, ...] = ()
+    # For 'partial': True if the winning rule matched only because the name is inside its pattern.
+    reverse_match: bool = False
+
+
+def explain_category(raw_name: str, amount: float, db_aliases: dict[str, int]) -> CategoryMatch:
     """
-    Categorizes a transaction based on its raw name and amount.
-    First cleans the name, then applies dynamic threshold rules, 
+    Categorizes a transaction based on its raw name and amount, and says which step decided.
+    First cleans the name, then applies dynamic threshold rules,
     and falls back to dictionary lookup.
     """
     clean_name = clean_business_name(raw_name)
     if not clean_name:
-        return None
-        
+        return CategoryMatch(None, "empty_name")
+
     abs_amount = abs(amount)
-    
+
     # Dynamic Rules for YELLOW / אלונית / פז
     if any(keyword in clean_name for keyword in ["YELLOW", "אלונית", "פז"]):
         if abs_amount > 100.0:
-            return 26  # Топливо / Fuel
+            return CategoryMatch(26, "amount_rule")  # Топливо / Fuel
         else:
-            return 17  # Снеки / Snacks
-            
+            return CategoryMatch(17, "amount_rule")  # Снеки / Snacks
+
     # Dynamic Rules for Dan Deal
     if "דן דיל" in clean_name:
         if abs_amount > 50.0:
-            return 24  # Хозтовары / Household
+            return CategoryMatch(24, "amount_rule")  # Хозтовары / Household
         else:
-            return 17  # Сладости / Snacks
+            return CategoryMatch(17, "amount_rule")  # Сладости / Snacks
 
     # Fallback to standard dictionary lookup
-    
+
     # 1. Look for exact match with cleaned name
     if clean_name in db_aliases:
-        return db_aliases[clean_name]
-        
+        return CategoryMatch(db_aliases[clean_name], "exact")
+
     # 2. Look for exact match with raw name (some DB aliases were saved with punctuation)
     raw_upper = str(raw_name).strip().upper()
     # Create a dict with uppercase keys for case-insensitive exact matching
     db_aliases_upper = {k.upper(): v for k, v in db_aliases.items()}
     if raw_upper in db_aliases_upper:
-        return db_aliases_upper[raw_upper]
-        
-    # 3. Look for partial match
+        return CategoryMatch(db_aliases_upper[raw_upper], "exact_raw")
+
+    # 3. Look for partial match (the first matching rule wins; all are listed for the audit)
+    matches: list[tuple[int, bool]] = []
     for alias_name, category_id in db_aliases.items():
         alias_upper = alias_name.upper()
-        if alias_upper in clean_name or clean_name in alias_upper or alias_upper in raw_upper or raw_upper in alias_upper:
-            return category_id
-            
-    return None
+        rule_in_name = alias_upper in clean_name or alias_upper in raw_upper
+        if rule_in_name or clean_name in alias_upper or raw_upper in alias_upper:
+            matches.append((category_id, not rule_in_name))
+    if matches:
+        first_category, reverse = matches[0]
+        return CategoryMatch(first_category, "partial", tuple(c for c, _ in matches), reverse)
+
+    return CategoryMatch(None, "none")
+
+
+def auto_categorize(raw_name: str, amount: float, db_aliases: dict[str, int]) -> Optional[int]:
+    """The category for a statement line, or None (see explain_category)."""
+    return explain_category(raw_name, amount, db_aliases).category_id
