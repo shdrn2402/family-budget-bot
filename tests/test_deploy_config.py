@@ -37,3 +37,16 @@ def test_image_includes_every_first_party_package() -> None:
     assert {"bot", "budget_core", "db"} <= set(packages)
     missing = [package for package in packages if f"{package}/ ./{package}/" not in dockerfile]
     assert missing == []
+
+
+def test_restore_script_drops_every_schema_the_migrations_create() -> None:
+    """A backup recreates every schema, so a restore must drop them all first (app since 0004, #62)."""
+    import re
+
+    migrations = "\n".join(p.read_text(encoding="utf-8") for p in (PROJECT_ROOT / "migrations" / "versions").glob("*.py"))
+    created = set(re.findall(r"CREATE SCHEMA (?:IF NOT EXISTS )?(\w+)", migrations)) | {"budget"}
+    script = (PROJECT_ROOT / "scripts" / "restore_db.sh").read_text(encoding="utf-8")
+    drop_sql = re.search(r"^DROP_SQL='([^']*)'", script, re.M).group(1)
+    dropped = set(re.findall(r"DROP SCHEMA IF EXISTS (\w+) CASCADE", drop_sql))
+    assert "app" in created
+    assert created - dropped == set()

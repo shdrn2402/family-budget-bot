@@ -11,7 +11,7 @@
 # What it does:
 #   1. asks you to type the database name to confirm;
 #   2. stops the bot;
-#   3. drops the `budget` schema and the Alembic version table and loads the backup.
+#   3. drops the `app` and `budget` schemas and the Alembic version table and loads the backup.
 #      For *.sql this happens in a single transaction: if anything fails, nothing changes.
 #      For *.dump the drop runs first, then pg_restore in one transaction.
 #   4. starts the bot again. On startup it applies any migrations the backup is missing,
@@ -41,7 +41,7 @@ case "$BACKUP_FILE" in
     *) echo "Error: expected a .sql or .dump file." >&2; exit 1 ;;
 esac
 
-DROP_SQL='DROP SCHEMA IF EXISTS budget CASCADE; DROP TABLE IF EXISTS public.alembic_version;'
+DROP_SQL='DROP SCHEMA IF EXISTS app CASCADE; DROP SCHEMA IF EXISTS budget CASCADE; DROP TABLE IF EXISTS public.alembic_version;'
 
 # Runs psql inside the database container, as the database's own user.
 db_psql() {
@@ -52,7 +52,7 @@ db_psql() {
 # `docker compose exec -T` reads stdin; give it /dev/null wherever it shouldn't consume input.
 DB_NAME="$(docker compose exec -T pgdatabase sh -c 'printf %s "$POSTGRES_DB"' </dev/null)"
 
-echo "This will DELETE all data in schema 'budget' of database '${DB_NAME}'"
+echo "This will DELETE all data in schemas 'app' and 'budget' of database '${DB_NAME}'"
 echo "and replace it with: ${BACKUP_FILE}"
 read -r -p "Type the database name to continue: " CONFIRM
 if [[ "$CONFIRM" != "$DB_NAME" ]]; then

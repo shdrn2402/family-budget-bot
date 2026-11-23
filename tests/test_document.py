@@ -43,7 +43,7 @@ async def test_document_handler_success():
          patch("bot.handlers.document.save_statement_rows") as mock_save, \
          patch("bot.handlers.document.create_database_dump", new_callable=AsyncMock) as mock_backup, \
          patch("bot.handlers.document.check_access", return_value=True), \
-         patch("db.aliases.get_all", new_callable=AsyncMock) as mock_aliases, \
+         patch("db.merchant_rules.get_all", new_callable=AsyncMock) as mock_aliases, \
          patch("db.accounts.find_owned_card", new_callable=AsyncMock, return_value={"id": 7}), \
          patch("asyncio.sleep", new_callable=AsyncMock):
          
@@ -111,7 +111,7 @@ async def test_document_handler_csv_success():
          patch("bot.handlers.document.save_statement_rows") as mock_save, \
          patch("bot.handlers.document.create_database_dump", new_callable=AsyncMock) as mock_backup, \
          patch("bot.handlers.document.check_access", return_value=True), \
-         patch("db.aliases.get_all", new_callable=AsyncMock) as mock_aliases, \
+         patch("db.merchant_rules.get_all", new_callable=AsyncMock) as mock_aliases, \
          patch("db.accounts.find_owned_card", new_callable=AsyncMock, return_value={"id": 7}), \
          patch("asyncio.sleep", new_callable=AsyncMock):
          
@@ -211,7 +211,7 @@ async def test_document_handler_debounce_batch():
          patch("bot.handlers.document.save_statement_rows") as mock_save, \
          patch("bot.handlers.document.create_database_dump", new_callable=AsyncMock) as mock_backup, \
          patch("bot.handlers.document.check_access", return_value=True), \
-         patch("db.aliases.get_all", new_callable=AsyncMock) as mock_aliases, \
+         patch("db.merchant_rules.get_all", new_callable=AsyncMock) as mock_aliases, \
          patch("asyncio.sleep", new_callable=AsyncMock):
 
         mock_import.side_effect = [
@@ -284,7 +284,7 @@ async def test_document_internal_transfers():
     with patch("bot.handlers.document.import_excel_file") as mock_import, \
          patch("bot.handlers.document.save_statement_rows") as mock_save, \
          patch("bot.handlers.document.create_database_dump", new_callable=AsyncMock) as mock_backup, \
-         patch("db.aliases.get_all", new_callable=AsyncMock) as mock_aliases, \
+         patch("db.merchant_rules.get_all", new_callable=AsyncMock) as mock_aliases, \
          patch("bot.handlers.document.check_access", return_value=True), \
          patch("asyncio.sleep", new_callable=AsyncMock):
 
@@ -378,7 +378,7 @@ async def test_document_filters_old_bit_transactions():
          patch("bot.handlers.document.create_database_dump", new_callable=AsyncMock), \
          patch("bot.handlers.document.check_access", return_value=True), \
          patch("bot.handlers.document.latest_date", new_callable=AsyncMock) as mock_get_date, \
-         patch("db.aliases.get_all", new_callable=AsyncMock) as mock_aliases:
+         patch("db.merchant_rules.get_all", new_callable=AsyncMock) as mock_aliases:
         
         mock_aliases.return_value = {}
         # Mock max date in DB to be May 5, 2026 (date object)

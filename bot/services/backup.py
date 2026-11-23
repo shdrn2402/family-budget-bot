@@ -3,7 +3,7 @@ import yaml
 import logging
 from datetime import datetime
 from bot.config import Config
-from db import aliases, pool
+from db import merchant_rules, pool
 
 logger = logging.getLogger(__name__)
 
@@ -58,12 +58,12 @@ async def create_database_dump() -> str | None:
 
 async def export_aliases_to_yaml() -> str | None:
     """
-    Exports the current item_aliases table to a YAML file compatible with seed_data.sql.
+    Exports the current merchant rules (app.merchant_rules) to a YAML file compatible with seed_data.sql.
     Returns the file path to the yaml or None if it failed.
     """
     try:
         async with pool.connection() as conn:
-            aliases_dict = await aliases.get_all(conn)
+            aliases_dict = await merchant_rules.get_all(conn)
         if not aliases_dict:
             logger.warning("No aliases found in database.")
             aliases_dict = {}

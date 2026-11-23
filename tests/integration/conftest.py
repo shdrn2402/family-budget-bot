@@ -143,7 +143,7 @@ async def household(db: psycopg.AsyncConnection) -> Household:
         (household.cash_account, household.bank_account, household.transit_account),
     )
     await db.execute(
-        "INSERT INTO item_aliases (name, category_id) VALUES ('testcoffee', %s), ('TESTMERCHANT', %s)",
+        "INSERT INTO app.merchant_rules (pattern, category_id) VALUES ('testcoffee', %s), ('TESTMERCHANT', %s)",
         (CATEGORY_RESTAURANTS, CATEGORY_RESTAURANTS),
     )
     await db.commit()
