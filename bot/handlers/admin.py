@@ -3,7 +3,7 @@ import os
 from telegram import Update
 from telegram.ext import ContextTypes
 from bot.handlers.common import check_access
-from bot.services.backup import create_database_dump, export_aliases_to_yaml
+from bot.services.backup import create_database_dump, export_household_to_yaml
 from db import pool, transactions, users
 from bot.texts import get_text
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 async def backup_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
     Handles the /backup command.
-    Generates a database dump and an aliases.yaml export, then sends them to the user.
+    Generates a database dump and a household export (YAML), then sends them to the user.
     """
     if not await check_access(update):
         return
@@ -31,7 +31,7 @@ async def backup_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         # Generate files
         sql_dump_path = await create_database_dump()
-        yaml_dump_path = await export_aliases_to_yaml()
+        yaml_dump_path = await export_household_to_yaml()
         
         if not sql_dump_path or not yaml_dump_path:
             await message.edit_text("❌ Failed to generate one or more backup files. Check bot logs.")

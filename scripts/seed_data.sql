@@ -1,3 +1,6 @@
+-- Public reference data: the category tree. Household data (accounts, aliases, merchant rules
+-- and names) is private and comes from the household file: scripts/load_household.py.
+
 -- Seed categories
 INSERT INTO budget.categories (id, name, parent_id) VALUES
 -- Parent Categories (NULL)
@@ -67,4 +70,3 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Reset sequence
 SELECT setval('budget.categories_id_seq', (SELECT max(id) FROM budget.categories));
-

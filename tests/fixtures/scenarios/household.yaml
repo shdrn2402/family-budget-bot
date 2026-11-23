@@ -1,17 +1,17 @@
 # The fake household every scenario runs against. All values are made up.
-# Account ids match the ids the code still has fixed (bank 3, shared cash 4, transit 5);
-# they move to configuration in a later Stage 1 step.
+# Roles say which account is the bank, the shared cash and the transit account, as in the
+# household file (scripts/load_household.py).
 
 users:            # key: fake Telegram user id
   alice: 1001
   bob: 1002
 
 accounts:
-  alice_card:  {id: 1, name: Alice Card, type: card, owner: alice}
+  alice_card:  {id: 1, name: Alice Card, type: card, owner: alice, role: default_card}
   bob_card:    {id: 2, name: Bob Card, type: card, owner: bob}
-  family_bank: {id: 3, name: Family Bank, type: card}
-  shared_cash: {id: 4, name: Shared Cash, type: cash}
-  transit:     {id: 5, name: Transit (Bit), type: transit}
+  family_bank: {id: 3, name: Family Bank, type: card, role: bank}
+  shared_cash: {id: 4, name: Shared Cash, type: cash, role: shared_cash}
+  transit:     {id: 5, name: Transit (Bit), type: transit, role: transit}
 
 # Reference category ids (the public category tree, scripts/seed_data.sql).
 categories:

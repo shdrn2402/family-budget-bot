@@ -78,7 +78,7 @@ def load_household(path: Path = SCENARIO_DIR / "household.yaml") -> Household:
         raise ValueError(f"{path.name}: duplicate account ids")
     household = Household(data["users"], data["accounts"], data["categories"], data["merchant_rules"])
     for key, account in household.accounts.items():
-        _check_fields(f"{path.name} account {key}", account, ({"id", "name", "type"}, {"owner"}))
+        _check_fields(f"{path.name} account {key}", account, ({"id", "name", "type"}, {"owner", "role"}))
         if account.get("owner") is not None and account["owner"] not in household.users:
             raise ValueError(f"{path.name} account {key}: unknown owner {account['owner']!r}")
     for alias, category in household.merchant_rules.items():

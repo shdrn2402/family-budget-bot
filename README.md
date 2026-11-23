@@ -87,12 +87,19 @@ Ensure Docker and Compose are installed, then run:
 docker compose up -d --build
 ```
 On startup, the bot brings the database schema up to date with [Alembic](https://alembic.sqlalchemy.org/) migrations (`migrations/`):
-*   **Empty database:** creates the schema, then loads the reference data from `scripts/seed_data.sql`.
+*   **Empty database:** creates the schema, then loads the public reference data (the category tree) from `scripts/seed_data.sql`.
 *   **Existing database created before migrations were introduced:** marks it as the baseline revision without changing it, then applies newer migrations.
 *   **Already migrated:** applies any new migrations.
 *   **Incomplete schema:** refuses to start. Nothing is ever dropped automatically.
 
 To change the schema, add a new revision (`uv run alembic revision -m "describe the change"`) instead of editing existing ones.
+
+**Household data.** Accounts (with their roles and card digits), account aliases, merchant rules and merchant-name normalization describe one real household, so they are not in the repo. They live in a private YAML file, in the format of `tests/fixtures/household.example.yaml`, and are loaded into the database with:
+```bash
+docker compose exec -T budget_bot python scripts/load_household.py --dry-run - < household.yaml  # check first
+docker compose exec -T budget_bot python scripts/load_household.py - < household.yaml
+```
+Loading is idempotent and never removes learned rules; it prints counts only. Statement uploads are refused with a hint until the accounts have their roles. The `/backup` command also exports the current household in this format.
 
 ### 3. Running Locally without Docker (for debugging)
 Install Astral `uv` and run:
@@ -136,7 +143,7 @@ Restoring is a manual, explicit operation. Get a backup (for example from the bo
 ```bash
 ./scripts/restore_db.sh path/to/backup.sql   # or .dump
 ```
-The script asks you to type the database name, stops the bot, replaces the `budget` schema with the backup, and starts the bot again; the bot then applies any missing migrations. Plain `.sql` backups are restored in a single transaction, so a failed restore changes nothing.
+The script asks you to type the database name, stops the bot, replaces the `app` and `budget` schemas with the backup, and starts the bot again; the bot then applies any missing migrations. Plain `.sql` backups are restored in a single transaction, so a failed restore changes nothing.
 
 ---
 
