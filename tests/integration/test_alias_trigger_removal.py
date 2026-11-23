@@ -9,7 +9,7 @@ import psycopg
 import pytest
 from sqlalchemy.engine import URL
 
-from bot.database import sync_category_by_alias
+from db import aliases
 from bot.db_migrate import BASELINE_REVISION, downgrade_to, upgrade_to
 from tests.integration.conftest import connect
 from tests.integration.schema_snapshot import schema_snapshot
@@ -63,7 +63,7 @@ async def _inline_menu_category_change(url: URL, transaction_id: int) -> None:
         host=url.host, port=url.port, user=url.username, password=url.password,
         dbname=url.database, options=BOT_SEARCH_PATH,
     ) as conn:
-        await sync_category_by_alias(f"{DESCRIPTION} {COMMENT}".strip(), CATEGORY_ID, USER_ID, conn)
+        await aliases.learn(conn, f"{DESCRIPTION} {COMMENT}".strip(), CATEGORY_ID, USER_ID)
 
 
 def _aliases(url: URL) -> list[str]:

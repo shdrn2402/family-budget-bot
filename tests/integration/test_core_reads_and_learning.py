@@ -1,13 +1,13 @@
 """
 Pins the current behaviour of history reads and category learning against a real database:
-get_recent_transactions, get_transactions_count, sync_category_by_alias (bot/database.py).
+db.transactions.list_recent and count, db.aliases.learn.
 Part of issue #11.
 """
 from datetime import datetime, timedelta
 
 import psycopg
 
-from bot.database import get_recent_transactions, get_transactions_count, sync_category_by_alias
+from db import aliases, transactions
 from tests.integration.conftest import CATEGORY_INTERNAL_TRANSFER, CATEGORY_RESTAURANTS, CATEGORY_SALARY, Household
 
 START = datetime(2026, 10, 1, 12, 0)
@@ -50,15 +50,15 @@ async def test_history_is_newest_first_paged_and_per_user(db: psycopg.AsyncConne
     await _insert(db, household, user_id=household.other_user_id, description="someone else", days=30)
     await db.commit()
 
-    first_page = await get_recent_transactions(household.user_id, limit=5, offset=0, conn=db)
-    second_page = await get_recent_transactions(household.user_id, limit=5, offset=5, conn=db)
+    first_page = await transactions.list_recent(db, household.user_id, limit=5, offset=0)
+    second_page = await transactions.list_recent(db, household.user_id, limit=5, offset=5)
 
     assert [t["id"] for t in first_page] == list(reversed(ids))[:5]
     assert [t["id"] for t in second_page] == list(reversed(ids))[5:]
     assert first_page[0]["account_name"] == {"en": "Test Bank", "ru": "Test Bank"}
     assert set(first_page[0]) == {"id", "description", "amount", "date", "account_name"}
-    assert await get_transactions_count(household.user_id, conn=db) == 7
-    assert await get_transactions_count(household.other_user_id, conn=db) == 1
+    assert await transactions.count(db, household.user_id) == 7
+    assert await transactions.count(db, household.other_user_id) == 1
 
 
 # --- Category learning -----------------------------------------------------------------
@@ -74,7 +74,7 @@ async def test_learning_saves_the_alias_and_categorizes_matching_rows_of_that_us
     await db.commit()
     last_alias = await _last_alias_id(db)
 
-    updated = await sync_category_by_alias("Coffee", CATEGORY_RESTAURANTS, household.user_id, db)
+    updated = await aliases.learn(db, "Coffee", CATEGORY_RESTAURANTS, household.user_id)
 
     assert updated == 1
     assert await _categories(db) == {
@@ -95,7 +95,7 @@ async def test_learning_uses_the_description_plus_comment_key(
     await db.commit()
     last_alias = await _last_alias_id(db)
 
-    await sync_category_by_alias("Transfer Alice", CATEGORY_INTERNAL_TRANSFER, household.user_id, db)
+    await aliases.learn(db, "Transfer Alice", CATEGORY_INTERNAL_TRANSFER, household.user_id)
 
     assert await _categories(db) == {to_alice: CATEGORY_INTERNAL_TRANSFER, to_bob: None}
     assert await _aliases_since(db, last_alias) == {"transfer alice": CATEGORY_INTERNAL_TRANSFER}
@@ -105,8 +105,8 @@ async def test_relearning_an_alias_moves_it_to_the_new_category(
     db: psycopg.AsyncConnection, household: Household
 ) -> None:
     last_alias = await _last_alias_id(db)
-    await sync_category_by_alias("Coffee", CATEGORY_RESTAURANTS, household.user_id, db)
-    await sync_category_by_alias("Coffee", CATEGORY_SALARY, household.user_id, db)
+    await aliases.learn(db, "Coffee", CATEGORY_RESTAURANTS, household.user_id)
+    await aliases.learn(db, "Coffee", CATEGORY_SALARY, household.user_id)
 
     assert await _aliases_since(db, last_alias) == {"coffee": CATEGORY_SALARY}
 
@@ -122,6 +122,6 @@ async def test_current_behaviour_learning_matches_substrings(
     containing = await _insert(db, household, user_id=household.user_id, description="Coffee Machine Repair")
     await db.commit()
 
-    assert await sync_category_by_alias("Coffee", CATEGORY_RESTAURANTS, household.user_id, db) == 2
+    assert await aliases.learn(db, "Coffee", CATEGORY_RESTAURANTS, household.user_id) == 2
 
     assert await _categories(db) == {exact: CATEGORY_RESTAURANTS, containing: CATEGORY_RESTAURANTS}

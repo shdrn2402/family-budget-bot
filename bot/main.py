@@ -1,6 +1,7 @@
 import logging
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters
+from telegram.ext import Application, ApplicationBuilder, CommandHandler, MessageHandler, filters
 from bot.config import Config
+from db import pool
 from bot.db_migrate import run_migrations
 from bot.handlers.common import start_handler
 from bot.handlers.expense import expense_message_handler
@@ -19,6 +20,15 @@ for _noisy_logger in ("httpx", "httpcore"):
 
 logger = logging.getLogger(__name__)
 
+
+async def _open_db_pool(application: Application) -> None:
+    await pool.open_pool(Config.db_conninfo())
+
+
+async def _close_db_pool(application: Application) -> None:
+    await pool.close_pool()
+
+
 def main() -> None:
     """Main entry point for the bot application."""
     if not Config.TELEGRAM_TOKEN:
@@ -33,7 +43,14 @@ def main() -> None:
     run_migrations()
 
     # Initialize the application
-    application = ApplicationBuilder().token(Config.TELEGRAM_TOKEN).build()
+    # One connection pool for the whole process, opened inside the bot's event loop.
+    application = (
+        ApplicationBuilder()
+        .token(Config.TELEGRAM_TOKEN)
+        .post_init(_open_db_pool)
+        .post_shutdown(_close_db_pool)
+        .build()
+    )
 
     from bot.handlers.inline_menu import inline_menu_handler
     from telegram.ext import CallbackQueryHandler

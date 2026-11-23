@@ -13,27 +13,11 @@ async def test_expense_handler_allows_cash_entry():
     context = MagicMock()
     
     # Mock dependencies
-    with patch("bot.handlers.expense.get_db_connection") as mock_db, \
-         patch("bot.handlers.expense.process_expense_text") as mock_process, \
-         patch("bot.database.get_user_info", new_callable=AsyncMock) as mock_user_info, \
-         patch("bot.services.expense.get_account_type", new_callable=AsyncMock) as mock_get_type, \
+    with patch("bot.handlers.expense.process_expense_text") as mock_process, \
+         patch("db.accounts.get_type", new_callable=AsyncMock) as mock_get_type, \
+         patch("db.transactions.insert_manual", new_callable=AsyncMock, return_value=999) as mock_insert, \
          patch("bot.handlers.expense.check_access", return_value=True):
-         
-        mock_user_info.return_value = {'id': 123, 'name': 'Test'}
-         
-        mock_conn = MagicMock()
-        mock_conn.__aenter__ = AsyncMock(return_value=mock_conn)
-        mock_conn.__aexit__ = AsyncMock()
-        mock_conn.commit = AsyncMock()
-        mock_db.return_value = mock_conn
-        
-        mock_cur = MagicMock()
-        mock_cur.__aenter__ = AsyncMock(return_value=mock_cur)
-        mock_cur.__aexit__ = AsyncMock()
-        mock_cur.execute = AsyncMock()
-        mock_cur.fetchone = AsyncMock(return_value={'id': 999})
-        mock_conn.cursor.return_value = mock_cur
-        
+
         # Mock parsed item
         mock_process.return_value = [{
             'item_name': 'coffee',
@@ -48,7 +32,8 @@ async def test_expense_handler_allows_cash_entry():
         
         await expense_message_handler(update, context)
         
-        # Verify it tried to insert into DB
+        # Verify it inserted into DB
+        mock_insert.assert_awaited_once()
         update.message.reply_text.assert_called_once()
         args, _ = update.message.reply_text.call_args
         assert "✅" in args[0]
@@ -65,25 +50,11 @@ async def test_expense_handler_blocks_card_entry():
     context = MagicMock()
     
     # Mock dependencies
-    with patch("bot.handlers.expense.get_db_connection") as mock_db, \
-         patch("bot.handlers.expense.process_expense_text") as mock_process, \
-         patch("bot.database.get_user_info", new_callable=AsyncMock) as mock_user_info, \
-         patch("bot.services.expense.get_account_type", new_callable=AsyncMock) as mock_get_type, \
+    with patch("bot.handlers.expense.process_expense_text") as mock_process, \
+         patch("db.accounts.get_type", new_callable=AsyncMock) as mock_get_type, \
+         patch("db.transactions.insert_manual", new_callable=AsyncMock, return_value=999) as mock_insert, \
          patch("bot.handlers.expense.check_access", return_value=True):
-         
-        mock_user_info.return_value = {'id': 123, 'name': 'Test'}
-         
-        mock_conn = MagicMock()
-        mock_conn.__aenter__ = AsyncMock(return_value=mock_conn)
-        mock_conn.__aexit__ = AsyncMock()
-        mock_db.return_value = mock_conn
-        
-        mock_cur = MagicMock()
-        mock_cur.__aenter__ = AsyncMock(return_value=mock_cur)
-        mock_cur.__aexit__ = AsyncMock()
-        mock_cur.execute = AsyncMock()
-        mock_conn.cursor.return_value = mock_cur
-        
+
         # Mock parsed item
         mock_process.return_value = [{
             'item_name': 'coffee',
@@ -105,5 +76,4 @@ async def test_expense_handler_blocks_card_entry():
         assert "Please use bank statements" in args[0]
         
         # Verify NO insertion attempt
-        for call in mock_cur.execute.call_args_list:
-            assert "INSERT INTO transactions" not in call[0][0]
+        mock_insert.assert_not_called()

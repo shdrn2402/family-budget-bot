@@ -5,13 +5,8 @@ from datetime import datetime
 from telegram import Update, Message
 from telegram.ext import ContextTypes
 from bot.services.importer import BitCardAccountMissing, import_excel_file
-from bot.database import (
-    get_all_item_aliases,
-    get_db_connection,
-    get_latest_import_date,
-    get_user_card_account,
-    save_transactions_bulk,
-)
+from db import accounts, aliases, pool
+from db.transactions import latest_date, save_statement_rows
 from bot.services.statement_batch import prepare_statement_batch
 from bot.handlers.common import check_access
 from bot.texts import get_text
@@ -146,7 +141,8 @@ async def process_batch(
     failed_files: list[tuple[str, str]] = []
 
     # Card-paid lines in a Bit export belong to the uploader's own card.
-    card_account = await get_user_card_account(user_id)
+    async with pool.connection() as conn:
+        card_account = await accounts.find_owned_card(conn, user_id)
     bit_card_account_id = card_account["id"] if card_account else None
 
     # 1. Download and parse all documents
@@ -167,7 +163,8 @@ async def process_batch(
             if transactions:
                 # Pre-filter for Bit statements based on latest DB date
                 if transactions[0].get('source_type') == 'import_bit':
-                    max_date = await get_latest_import_date('import_bit')
+                    async with pool.connection() as conn:
+                        max_date = await latest_date(conn, 'import_bit')
                     if max_date:
                         if isinstance(max_date, datetime):
                             max_date = max_date.date()
@@ -222,14 +219,14 @@ async def process_batch(
     # 3. Save transactions to database
     inserted_count = 0
     try:
-        async with await get_db_connection() as conn:
+        async with pool.connection() as conn:
             # Load aliases to auto-categorize
-            db_aliases = await get_all_item_aliases(conn)
-            
+            db_aliases = await aliases.get_all(conn)
+
             all_transactions = prepare_statement_batch(all_transactions, db_aliases)
 
-            # Save to DB
-            inserted_count = await save_transactions_bulk(user_id, all_transactions, conn)
+            # Save to DB (one atomic batch)
+            inserted_count = await save_statement_rows(conn, user_id, all_transactions)
     except Exception as db_err:
         logger.error(f"Database error during batch saving for user {user_id}: {db_err}", exc_info=True)
         try:
