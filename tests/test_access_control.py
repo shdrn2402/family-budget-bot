@@ -19,7 +19,7 @@ async def test_inline_menu_rejects_users_without_access() -> None:
     update = _callback_update("delete_tx:99:99,100:")
 
     with patch("bot.handlers.inline_menu.check_access", new_callable=AsyncMock) as mock_access, \
-         patch("bot.handlers.inline_menu.get_db_connection") as mock_db:
+         patch("db.pool.connection") as mock_db:
         mock_access.return_value = False
         await inline_menu_handler(update, MagicMock())
 
@@ -60,7 +60,7 @@ async def test_backup_is_refused_for_non_admin() -> None:
     update = _command_update()
 
     with patch("bot.handlers.admin.check_access", new_callable=AsyncMock, return_value=True), \
-         patch("bot.handlers.admin.get_user_info", new_callable=AsyncMock,
+         patch("db.users.get", new_callable=AsyncMock,
                return_value={"id": 42, "name": "x", "is_admin": False}), \
          patch("bot.handlers.admin.create_database_dump", new_callable=AsyncMock) as mock_dump:
         await backup_handler(update, MagicMock())
@@ -77,7 +77,7 @@ async def test_backup_is_refused_when_user_info_is_unavailable() -> None:
     update = _command_update()
 
     with patch("bot.handlers.admin.check_access", new_callable=AsyncMock, return_value=True), \
-         patch("bot.handlers.admin.get_user_info", new_callable=AsyncMock, return_value=None), \
+         patch("db.users.get", new_callable=AsyncMock, return_value=None), \
          patch("bot.handlers.admin.create_database_dump", new_callable=AsyncMock) as mock_dump:
         await backup_handler(update, MagicMock())
 
@@ -93,7 +93,7 @@ async def test_backup_runs_for_admin() -> None:
     update.message.reply_text = AsyncMock(return_value=status_message)
 
     with patch("bot.handlers.admin.check_access", new_callable=AsyncMock, return_value=True), \
-         patch("bot.handlers.admin.get_user_info", new_callable=AsyncMock,
+         patch("db.users.get", new_callable=AsyncMock,
                return_value={"id": 42, "name": "x", "is_admin": True}), \
          patch("bot.handlers.admin.create_database_dump", new_callable=AsyncMock,
                return_value=None) as mock_dump, \

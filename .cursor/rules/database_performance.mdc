@@ -1,6 +1,6 @@
 ---
 description: Rules for database performance and bulk operations
-globs: bot/database.py, bot/services/*.py
+globs: db/*.py, bot/services/*.py
 ---
 # Database Performance Standards
 

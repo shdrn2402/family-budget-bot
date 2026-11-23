@@ -8,10 +8,6 @@ except ImportError:
     document_handler = None
     DEBOUNCE_JOBS = {}
 
-async def mock_get_db_conn():
-    from tests.conftest import FakeConnection
-    return FakeConnection()
-
 @pytest.mark.asyncio
 async def test_document_handler_success():
     """Test successful document upload and parsing via Telegram (debounced)."""
@@ -44,12 +40,11 @@ async def test_document_handler_success():
     context.bot.get_file = AsyncMock(return_value=mock_file)
     
     with patch("bot.handlers.document.import_excel_file") as mock_import, \
-         patch("bot.handlers.document.save_transactions_bulk") as mock_save, \
+         patch("bot.handlers.document.save_statement_rows") as mock_save, \
          patch("bot.handlers.document.create_database_dump", new_callable=AsyncMock) as mock_backup, \
          patch("bot.handlers.document.check_access", return_value=True), \
-         patch("bot.handlers.document.get_db_connection", side_effect=mock_get_db_conn), \
-         patch("bot.handlers.document.get_all_item_aliases", new_callable=AsyncMock) as mock_aliases, \
-         patch("bot.handlers.document.get_user_card_account", new_callable=AsyncMock, return_value={"id": 7}), \
+         patch("db.aliases.get_all", new_callable=AsyncMock) as mock_aliases, \
+         patch("db.accounts.find_owned_card", new_callable=AsyncMock, return_value={"id": 7}), \
          patch("asyncio.sleep", new_callable=AsyncMock):
          
         # Mock parsing returning 1 transaction
@@ -113,12 +108,11 @@ async def test_document_handler_csv_success():
     context.bot.get_file = AsyncMock(return_value=mock_file)
     
     with patch("bot.handlers.document.import_excel_file") as mock_import, \
-         patch("bot.handlers.document.save_transactions_bulk") as mock_save, \
+         patch("bot.handlers.document.save_statement_rows") as mock_save, \
          patch("bot.handlers.document.create_database_dump", new_callable=AsyncMock) as mock_backup, \
          patch("bot.handlers.document.check_access", return_value=True), \
-         patch("bot.handlers.document.get_db_connection", side_effect=mock_get_db_conn), \
-         patch("bot.handlers.document.get_all_item_aliases", new_callable=AsyncMock) as mock_aliases, \
-         patch("bot.handlers.document.get_user_card_account", new_callable=AsyncMock, return_value={"id": 7}), \
+         patch("db.aliases.get_all", new_callable=AsyncMock) as mock_aliases, \
+         patch("db.accounts.find_owned_card", new_callable=AsyncMock, return_value={"id": 7}), \
          patch("asyncio.sleep", new_callable=AsyncMock):
          
         # Mock parsing returning 1 transaction
@@ -158,9 +152,9 @@ async def test_bit_export_without_a_linked_card_is_reported():
     context.bot.get_file = AsyncMock(return_value=AsyncMock())
 
     with patch("bot.handlers.document.import_excel_file", side_effect=BitCardAccountMissing()), \
-         patch("bot.handlers.document.save_transactions_bulk", new_callable=AsyncMock) as mock_save, \
+         patch("bot.handlers.document.save_statement_rows", new_callable=AsyncMock) as mock_save, \
          patch("bot.handlers.document.check_access", return_value=True), \
-         patch("bot.handlers.document.get_user_card_account", new_callable=AsyncMock, return_value=None), \
+         patch("db.accounts.find_owned_card", new_callable=AsyncMock, return_value=None), \
          patch("asyncio.sleep", new_callable=AsyncMock):
         await document_handler(update, context)
         await DEBOUNCE_JOBS[123]['task']
@@ -214,11 +208,10 @@ async def test_document_handler_debounce_batch():
 
     original_sleep = asyncio.sleep
     with patch("bot.handlers.document.import_excel_file") as mock_import, \
-         patch("bot.handlers.document.save_transactions_bulk") as mock_save, \
+         patch("bot.handlers.document.save_statement_rows") as mock_save, \
          patch("bot.handlers.document.create_database_dump", new_callable=AsyncMock) as mock_backup, \
          patch("bot.handlers.document.check_access", return_value=True), \
-         patch("bot.handlers.document.get_db_connection", side_effect=mock_get_db_conn), \
-         patch("bot.handlers.document.get_all_item_aliases", new_callable=AsyncMock) as mock_aliases, \
+         patch("db.aliases.get_all", new_callable=AsyncMock) as mock_aliases, \
          patch("asyncio.sleep", new_callable=AsyncMock):
 
         mock_import.side_effect = [
@@ -252,7 +245,7 @@ async def test_document_handler_debounce_batch():
         
         # Verify saving was done in one batch
         mock_save.assert_called_once()
-        saved_txs = mock_save.call_args[0][1]
+        saved_txs = mock_save.call_args[0][2]
         assert len(saved_txs) == 2
 
         # Verify status updates count
@@ -289,11 +282,10 @@ async def test_document_internal_transfers():
     update.message.reply_text = AsyncMock(return_value=status_msg)
 
     with patch("bot.handlers.document.import_excel_file") as mock_import, \
-         patch("bot.handlers.document.save_transactions_bulk") as mock_save, \
+         patch("bot.handlers.document.save_statement_rows") as mock_save, \
          patch("bot.handlers.document.create_database_dump", new_callable=AsyncMock) as mock_backup, \
-         patch("bot.handlers.document.get_all_item_aliases", new_callable=AsyncMock) as mock_aliases, \
+         patch("db.aliases.get_all", new_callable=AsyncMock) as mock_aliases, \
          patch("bot.handlers.document.check_access", return_value=True), \
-         patch("bot.handlers.document.get_db_connection", side_effect=mock_get_db_conn), \
          patch("asyncio.sleep", new_callable=AsyncMock):
 
         # Provide a transaction that resolves to category 43 and 15
@@ -320,7 +312,7 @@ async def test_document_internal_transfers():
         await task
 
         mock_save.assert_called_once()
-        saved_txs = mock_save.call_args[0][1]
+        saved_txs = mock_save.call_args[0][2]
         
         # We expect 6 transactions total
         assert len(saved_txs) == 6
@@ -348,7 +340,7 @@ async def test_document_internal_transfers():
 
 @pytest.mark.asyncio
 async def test_document_filters_old_bit_transactions():
-    """Test that older Bit transactions are filtered out and save_transactions_bulk is called correctly."""
+    """Test that older Bit transactions are filtered out and save_statement_rows is called correctly."""
     from bot.handlers.document import document_handler, DEBOUNCE_JOBS
     import datetime
 
@@ -382,12 +374,11 @@ async def test_document_filters_old_bit_transactions():
     ]
 
     with patch("bot.handlers.document.import_excel_file", return_value=transactions), \
-         patch("bot.handlers.document.save_transactions_bulk", return_value=1) as mock_save, \
+         patch("bot.handlers.document.save_statement_rows", return_value=1) as mock_save, \
          patch("bot.handlers.document.create_database_dump", new_callable=AsyncMock), \
          patch("bot.handlers.document.check_access", return_value=True), \
-         patch("bot.handlers.document.get_db_connection"), \
-         patch("bot.handlers.document.get_latest_import_date", new_callable=AsyncMock) as mock_get_date, \
-         patch("bot.handlers.document.get_all_item_aliases", new_callable=AsyncMock) as mock_aliases:
+         patch("bot.handlers.document.latest_date", new_callable=AsyncMock) as mock_get_date, \
+         patch("db.aliases.get_all", new_callable=AsyncMock) as mock_aliases:
         
         mock_aliases.return_value = {}
         # Mock max date in DB to be May 5, 2026 (date object)
@@ -397,11 +388,12 @@ async def test_document_filters_old_bit_transactions():
         task = DEBOUNCE_JOBS[123]['task']
         await task
 
-        mock_get_date.assert_called_once_with('import_bit')
+        mock_get_date.assert_called_once()
+        assert mock_get_date.call_args.args[1] == 'import_bit'
         
-        # save_transactions_bulk should have been called with the Same Day and New transaction
+        # save_statement_rows should have been called with the Same Day and New transaction
         mock_save.assert_called_once()
-        saved_txs = mock_save.call_args[0][1]
+        saved_txs = mock_save.call_args[0][2]
         assert len(saved_txs) == 2
         assert saved_txs[0]['date'] == datetime.datetime(2026, 5, 5)
         assert saved_txs[1]['date'] == datetime.datetime(2026, 5, 10)

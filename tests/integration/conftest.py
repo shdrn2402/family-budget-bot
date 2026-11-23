@@ -18,7 +18,6 @@ from dataclasses import dataclass
 
 import psycopg
 import pytest
-from psycopg.rows import dict_row
 from sqlalchemy.engine import URL, make_url
 
 TEST_DATABASE_URL: str | None = os.getenv("TEST_DATABASE_URL")
@@ -31,6 +30,11 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
     for item in items:
         if "tests/integration" in str(item.fspath):
             item.add_marker(skip)
+
+
+@pytest.fixture(autouse=True)
+def mock_db_connection() -> None:
+    """Overrides the unit-test fake from tests/conftest.py: integration tests use the real pool."""
 
 
 def _admin_conninfo() -> str:
@@ -78,15 +82,16 @@ def seeded_url(create_database: Callable[[], URL]) -> URL:
 
 @pytest.fixture
 async def db(seeded_url: URL) -> AsyncIterator[psycopg.AsyncConnection]:
-    """An async connection configured like the bot's own (dict rows, search_path=budget,public)."""
+    """An async connection configured like the pool's (dict rows, search_path=budget,public)."""
+    from db.pool import CONNECTION_KWARGS
+
     conn = await psycopg.AsyncConnection.connect(
         host=seeded_url.host,
         port=seeded_url.port,
         user=seeded_url.username,
         password=seeded_url.password,
         dbname=seeded_url.database,
-        row_factory=dict_row,
-        options="-c search_path=budget,public",
+        **CONNECTION_KWARGS,
     )
     yield conn
     await conn.close()

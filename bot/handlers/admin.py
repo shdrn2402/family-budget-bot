@@ -4,8 +4,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from bot.handlers.common import check_access
 from bot.services.backup import create_database_dump, export_aliases_to_yaml
-from bot.database import get_db_connection, get_user_info
-from psycopg.rows import dict_row
+from db import pool, transactions, users
 from bot.texts import get_text
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -20,7 +19,8 @@ async def backup_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # The dump contains the whole database, so restrict it to admins (fail closed).
-    user_info = await get_user_info(update.effective_user.id)
+    async with pool.connection() as conn:
+        user_info = await users.get(conn, update.effective_user.id)
     if not user_info or not user_info.get("is_admin"):
         await update.message.reply_text(get_text("admin_only", update.effective_user.language_code))
         return
@@ -64,14 +64,10 @@ async def uncategorized_handler(update: Update, context: ContextTypes.DEFAULT_TY
     # Let user know we are searching
     message = await update.effective_message.reply_text("🔍 Ищу неразмеченные транзакции..." if lang == 'ru' else "🔍 Searching for uncategorized transactions...")
     
-    async with await get_db_connection() as conn:
-        async with conn.cursor(row_factory=dict_row) as cur:
-            await cur.execute(
-                "SELECT id, description, amount, date FROM transactions WHERE category_id IS NULL ORDER BY date DESC"
-            )
-            transactions = await cur.fetchall()
-            
-    if not transactions:
+    async with pool.connection() as conn:
+        uncategorized = await transactions.list_uncategorized(conn)
+
+    if not uncategorized:
         await message.edit_text(
             "🎉 Все транзакции размечены!" if lang == 'ru' else "🎉 All transactions are categorized!"
         )
@@ -81,8 +77,8 @@ async def uncategorized_handler(update: Update, context: ContextTypes.DEFAULT_TY
         
     # Group in chunks of 5 to avoid callback_data limits (64 bytes)
     chunk_size = 5
-    for i in range(0, len(transactions), chunk_size):
-        chunk = transactions[i:i+chunk_size]
+    for i in range(0, len(uncategorized), chunk_size):
+        chunk = uncategorized[i:i+chunk_size]
         responses = []
         ids = []
         for tx in chunk:
