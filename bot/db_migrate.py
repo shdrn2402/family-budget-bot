@@ -36,6 +36,7 @@ BASELINE_REVISION: str = "0001"
 VERSION_TABLE: str = "alembic_version"
 VERSION_TABLE_SCHEMA: str = "public"
 
+# The pre-Alembic production schema (revision 0001); later revisions move or drop some of these.
 LEGACY_TABLES: frozenset[str] = frozenset(
     {"users", "accounts", "account_aliases", "categories", "item_aliases", "transactions"}
 )

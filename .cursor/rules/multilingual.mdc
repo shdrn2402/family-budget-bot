@@ -8,7 +8,7 @@
 *   **Forbidden:** Do not use separate columns (like `name_en`, `name_ru`) and do not store plain text strings in this column.
 
 ## 2. Text Parser and Aliases
-*   **Database-Driven Mappings:** All dictionaries for parsing user input (account synonyms, item names, etc.) MUST be stored EXCLUSIVELY in the database (e.g., in `item_aliases` or `account_aliases` tables).
+*   **Database-Driven Mappings:** All dictionaries for parsing user input (account synonyms, item names, etc.) MUST be stored EXCLUSIVELY in the database (e.g., in `app.merchant_rules` or `account_aliases` tables).
 *   **Strictly No Hardcoding:** It is STRICTLY FORBIDDEN to hardcode any words, synonyms, or mappings in Python code. The codebase must remain completely language-agnostic.
 *   **ID-Based Logic:** Handlers and parsers must NEVER hardcode category or account names. They must operate strictly on `category_id` and `account_id`.
 

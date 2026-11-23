@@ -67,3 +67,4 @@ ON CONFLICT (id) DO UPDATE SET
 
 -- Reset sequence
 SELECT setval('budget.categories_id_seq', (SELECT max(id) FROM budget.categories));
+
