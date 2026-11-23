@@ -23,7 +23,7 @@ steps:            # replayed in order
       expect_saved: 1             # optional: rows the bot reports as saved
   - stored_row: {user, account, amount, date, description, external_id, comment?, source_type?, status?, category?}
 expected:         # the whole ledger at the end, in any order
-  - {user, account, amount, date, status, source_type, description, external_id?, comment?, category?}
+  - {user, account, amount, date, status, source_type, description, external_id?, merged_external_id?, comment?, category?}
 ```
 
 - `user`, `account` and `category` are keys from `household.yaml`.

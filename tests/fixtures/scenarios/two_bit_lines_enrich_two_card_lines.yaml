@@ -1,0 +1,24 @@
+id: two_bit_lines_enrich_two_card_lines
+description: >-
+  Two card lines (10th and 11th), then two Bit lines on the 10th, all with the same amount. Both Bit
+  lines are closest to the first card row, but a row that already took one merge is no longer a
+  candidate, so the second Bit line enriches the second card row (#60).
+steps:
+  - statement_import:
+      user: alice
+      lines:
+        - {account: alice_card, amount: -50, date: 2026-06-10, external_id: isracard_first, description: BIT TRANSFER}
+        - {account: alice_card, amount: -50, date: 2026-06-11, external_id: isracard_second, description: BIT TRANSFER}
+  - statement_import:
+      user: alice
+      lines:
+        - {account: alice_card, amount: -50, date: 2026-06-10, external_id: bit_dana, description: Transfer,
+           comment: Dana Cohen, source_type: import_bit}
+        - {account: alice_card, amount: -50, date: 2026-06-10, external_id: bit_eli, description: Transfer,
+           comment: Eli Levi, source_type: import_bit}
+      expect_saved: 2
+expected:
+  - {user: alice, account: alice_card, amount: -50, date: 2026-06-10, status: confirmed, source_type: import_xls,
+     external_id: isracard_first, merged_external_id: bit_dana, description: BIT TRANSFER, comment: Dana Cohen}
+  - {user: alice, account: alice_card, amount: -50, date: 2026-06-11, status: confirmed, source_type: import_xls,
+     external_id: isracard_second, merged_external_id: bit_eli, description: BIT TRANSFER, comment: Eli Levi}
