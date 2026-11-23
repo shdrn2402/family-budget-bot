@@ -1,0 +1,16 @@
+id: bit_reimport_over_a_row_merged_by_older_code
+description: >-
+  A card row enriched before merged_external_id existed has the counterparty in its comment but no
+  merged id. Re-uploading that Bit line is a duplicate (comment fallback) and fills the id in (#60).
+steps:
+  - stored_row: {user: alice, account: alice_card, amount: -80, date: 2026-06-10, description: BIT TRANSFER,
+                 external_id: isracard_bit, comment: Dana Cohen}
+  - statement_import:
+      user: alice
+      lines:
+        - {account: alice_card, amount: -80, date: 2026-06-11, external_id: bit_old, description: Transfer,
+           comment: Dana Cohen, source_type: import_bit}
+      expect_saved: 0
+expected:
+  - {user: alice, account: alice_card, amount: -80, date: 2026-06-10, status: confirmed, source_type: import_xls,
+     external_id: isracard_bit, merged_external_id: bit_old, description: BIT TRANSFER, comment: Dana Cohen}
