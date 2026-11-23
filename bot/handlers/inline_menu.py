@@ -180,7 +180,8 @@ async def inline_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                 if len(row) == 2:
                     keyboard.append(row)
                     row = []
-            if row: keyboard.append(row)
+            if row:
+                keyboard.append(row)
                 
             keyboard.append([InlineKeyboardButton("⬅️ " + get_text("cancel", user_lang), callback_data=f"edit_tx:{tx_id}:{tx_ids_str}:{page}")])
             await query.edit_message_reply_markup(reply_markup=InlineKeyboardMarkup(keyboard))
