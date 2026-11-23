@@ -1,0 +1,25 @@
+id: bit_export_reuploaded_after_card_takeover
+description: >-
+  A card line took over a Bit row, so the row now carries the card's id. Uploading the Bit export
+  again is still a duplicate: the old Bit id is kept in merged_external_id (#60).
+steps:
+  - statement_import:
+      user: alice
+      lines:
+        - {account: alice_card, amount: -80, date: 2026-06-10, external_id: bit_existing, description: Transfer,
+           comment: Dana Cohen, source_type: import_bit}
+  - statement_import:
+      user: alice
+      lines:
+        - {account: alice_card, amount: -80, date: 2026-06-10, external_id: isracard_new, description: BIT TRANSFER}
+      expect_saved: 1
+  - statement_import:
+      user: alice
+      lines:
+        - {account: alice_card, amount: -80, date: 2026-06-10, external_id: bit_existing, description: Transfer,
+           comment: Dana Cohen, source_type: import_bit}
+      expect_saved: 0
+expected:
+  - {user: alice, account: alice_card, amount: -80, date: 2026-06-10, status: confirmed, source_type: import_xls,
+     external_id: isracard_new, merged_external_id: bit_existing, description: Transfer,
+     comment: "Dana Cohen, BIT TRANSFER"}

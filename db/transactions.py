@@ -144,9 +144,13 @@ async def save_statement_rows(conn: AsyncConnection, user_id: int, rows: list[di
     row on any account, and moves to that account. Among several candidates, a same-account row
     comes first, then the closest date, then the oldest row (#17). Then:
     - existing row is pending (manual entry): it's confirmed with the imported details;
-    - importing Bit, existing card/bank row: the counterparty is appended to its comment;
-    - importing card/bank, existing Bit row: its external_id and source are taken over.
-    Rows whose external_id is already stored are skipped as duplicates before any matching.
+    - importing Bit, existing card/bank row: the counterparty is appended to its comment, and the
+      Bit line's id is kept in merged_external_id;
+    - importing card/bank, existing Bit row: its external_id and source are taken over, and the
+      old Bit id moves to merged_external_id.
+    A row that already took a merge (merged_external_id set) is no longer a candidate (#60).
+    Rows whose id is already stored (as external_id or merged_external_id) are skipped as
+    duplicates before any matching.
     Rows without a match are inserted, owned by the account's owner (else by `user_id`).
 
     Returns the number of new or merged rows. The batch is atomic: on a database error nothing
@@ -161,7 +165,10 @@ async def save_statement_rows(conn: AsyncConnection, user_id: int, rows: list[di
                 # Already stored (e.g. a statement uploaded again): a duplicate. This must come before
                 # matching, which could otherwise try to give another row this same external_id (#15).
                 if tx.get('external_id'):
-                    await cur.execute("SELECT 1 FROM transactions WHERE external_id = %s;", (tx['external_id'],))
+                    await cur.execute(
+                        "SELECT 1 FROM transactions WHERE external_id = %s OR merged_external_id = %s;",
+                        (tx['external_id'], tx['external_id']),
+                    )
                     if await cur.fetchone():
                         continue
 
@@ -175,6 +182,7 @@ async def save_statement_rows(conn: AsyncConnection, user_id: int, rows: list[di
                     SELECT id, source_type, status FROM transactions
                     WHERE amount = %s
                       AND (status = 'pending' OR source_type = ANY(%s))
+                      AND merged_external_id IS NULL
                       AND date BETWEEN %s::date - INTERVAL '3 days' AND %s::date + INTERVAL '3 days'
                       AND (account_id = %s
                            OR (%s AND status = 'pending'
@@ -237,9 +245,14 @@ async def save_statement_rows(conn: AsyncConnection, user_id: int, rows: list[di
 
                 elif current_source == 'import_bit':
                     # Bit row matching a card/bank row: keep the statement's external_id and only add
-                    # the counterparty. If it's already there (re-import), it's a duplicate.
+                    # the counterparty. If it's already there, it's a re-import over a row merged
+                    # before merged_external_id existed: a duplicate, and the id is filled in now.
                     if await _append_to_comment(cur, match['id'], tx.get('comment')):
                         inserted_count += 1
+                    await cur.execute(
+                        "UPDATE transactions SET merged_external_id = %s WHERE id = %s;",
+                        (tx['external_id'], match['id']),
+                    )
 
                 else:
                     # Card/bank row matching a Bit row: the statement is the source of truth, so take
@@ -248,7 +261,8 @@ async def save_statement_rows(conn: AsyncConnection, user_id: int, rows: list[di
                     await cur.execute(
                         """
                         UPDATE transactions
-                        SET external_id = %s,
+                        SET merged_external_id = external_id,
+                            external_id = %s,
                             source_type = 'import_xls',
                             comment = CASE
                                           WHEN comment IS NULL OR comment = '' THEN %s

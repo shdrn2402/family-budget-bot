@@ -19,4 +19,4 @@ steps:
       expect_saved: 0
 expected:
   - {user: alice, account: alice_card, amount: -80, date: 2026-06-10, status: confirmed, source_type: import_xls,
-     external_id: isracard_bit, description: BIT TRANSFER, comment: Dana Cohen}
+     external_id: isracard_bit, merged_external_id: bit_new, description: BIT TRANSFER, comment: Dana Cohen}

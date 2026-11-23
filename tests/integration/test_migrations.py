@@ -115,3 +115,34 @@ def test_partial_schema_is_refused_and_left_untouched(create_database: Callable[
 
     with connect(url) as conn:
         assert conn.execute("SELECT id FROM budget.users").fetchall() == [(7,)]
+
+
+def test_merged_external_id_is_unique_and_its_migration_reverses_cleanly(
+    create_database: Callable[[], URL],
+) -> None:
+    """0003 adds transactions.merged_external_id (#60); downgrading restores 0002 exactly."""
+    import psycopg
+
+    from bot.db_migrate import downgrade_to
+
+    before_url = create_database()
+    upgrade_to("0002", before_url)
+
+    url = create_database()
+    upgrade_to("0003", url)
+    with connect(url) as conn:
+        conn.execute("INSERT INTO budget.users (id, name) VALUES (1, 'u')")
+        insert = (
+            "INSERT INTO budget.transactions (user_id, amount, description, date, merged_external_id) "
+            "VALUES (1, -1, 'x', now(), %s)"
+        )
+        conn.execute(insert, (None,))
+        conn.execute(insert, (None,))  # many rows without a merge
+        conn.execute(insert, ("bit_1",))
+        with pytest.raises(psycopg.errors.UniqueViolation):
+            conn.execute(insert, ("bit_1",))  # but each line merges into one row only
+        conn.rollback()
+
+    downgrade_to("0002", url)
+    with connect(url) as downgraded, connect(before_url) as before:
+        assert schema_snapshot(downgraded) == schema_snapshot(before)

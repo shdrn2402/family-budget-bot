@@ -104,7 +104,7 @@ async def _run_step(db: psycopg.AsyncConnection, household: Household, kind: str
 async def _ledger(db: psycopg.AsyncConnection, household: Household) -> list[dict[str, Any]]:
     rows = await (await db.execute(
         "SELECT user_id, account_id, category_id, amount, description, comment, date::date AS day, "
-        "external_id, source_type, status FROM transactions ORDER BY id"
+        "external_id, merged_external_id, source_type, status FROM transactions ORDER BY id"
     )).fetchall()
     return [
         {
@@ -115,6 +115,7 @@ async def _ledger(db: psycopg.AsyncConnection, household: Household) -> list[dic
             "status": r["status"],
             "source_type": r["source_type"],
             "external_id": r["external_id"],
+            "merged_external_id": r["merged_external_id"],
             "description": r["description"],
             "comment": r["comment"],
             "category": household.category_key(r["category_id"]),
