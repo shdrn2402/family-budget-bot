@@ -69,10 +69,10 @@ _QUERIES: dict[str, str] = {
 }
 
 
-def schema_snapshot(conn: psycopg.Connection) -> dict[str, list[tuple[Any, ...]]]:
+def schema_snapshot(conn: psycopg.Connection, schema: str = SCHEMA) -> dict[str, list[tuple[Any, ...]]]:
     snapshot: dict[str, list[tuple[Any, ...]]] = {}
     with conn.cursor() as cur:
         for name, query in _QUERIES.items():
-            cur.execute(query, {"schema": SCHEMA})
+            cur.execute(query, {"schema": schema})
             snapshot[name] = [tuple(row) for row in cur.fetchall()]
     return snapshot
