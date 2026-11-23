@@ -12,7 +12,8 @@ async def test_history_handler_sends_message():
     update.message = AsyncMock()
     context = MagicMock()
     
-    with patch("bot.handlers.history.build_history_page") as mock_build:
+    with patch("bot.handlers.history.check_access", new_callable=AsyncMock, return_value=True), \
+         patch("bot.handlers.history.build_history_page") as mock_build:
         mock_build.return_value = ("some text", InlineKeyboardMarkup([]))
         await history_handler(update, context)
         
@@ -27,8 +28,8 @@ async def test_build_history_page_first_page_of_many():
     user_id = 123
     lang = "ru"
     
-    with patch("bot.handlers.history.get_recent_transactions") as mock_get_tx, \
-         patch("bot.handlers.history.get_transactions_count") as mock_count:
+    with patch("db.transactions.list_recent", new_callable=AsyncMock) as mock_get_tx, \
+         patch("db.transactions.count", new_callable=AsyncMock) as mock_count:
          
         mock_get_tx.return_value = [
             {'id': i, 'description': f'item {i}', 'amount': 100, 'date': MagicMock(), 'account_name': 'acc'}
@@ -59,8 +60,8 @@ async def test_build_history_page_middle_page():
     user_id = 123
     lang = "ru"
     
-    with patch("bot.handlers.history.get_recent_transactions") as mock_get_tx, \
-         patch("bot.handlers.history.get_transactions_count") as mock_count:
+    with patch("db.transactions.list_recent", new_callable=AsyncMock) as mock_get_tx, \
+         patch("db.transactions.count", new_callable=AsyncMock) as mock_count:
          
         mock_get_tx.return_value = [
             {'id': i, 'description': f'item {i}', 'amount': 100, 'date': MagicMock(), 'account_name': 'acc'}
@@ -85,8 +86,8 @@ async def test_build_history_page_last_page():
     user_id = 123
     lang = "ru"
     
-    with patch("bot.handlers.history.get_recent_transactions") as mock_get_tx, \
-         patch("bot.handlers.history.get_transactions_count") as mock_count:
+    with patch("db.transactions.list_recent", new_callable=AsyncMock) as mock_get_tx, \
+         patch("db.transactions.count", new_callable=AsyncMock) as mock_count:
          
         mock_get_tx.return_value = [
             {'id': 11, 'description': 'item 11', 'amount': 100, 'date': MagicMock(), 'account_name': 'acc'}
@@ -116,7 +117,8 @@ async def test_inline_menu_handles_hist_page():
     
     context = MagicMock()
     
-    with patch("bot.handlers.history.build_history_page") as mock_build:
+    with patch("bot.handlers.inline_menu.check_access", new_callable=AsyncMock, return_value=True), \
+         patch("bot.handlers.history.build_history_page") as mock_build:
         mock_build.return_value = ("new text", InlineKeyboardMarkup([]))
         
         await inline_menu_handler(update, context)

@@ -23,7 +23,7 @@ This project enforces a strict Separation of Concerns (as per `coding_standards.
 
 ### 2.1 Core Files
 *   `bot/main.py`: The entry point of the application. Initializes the bot, dispatcher, and starts polling/webhooks.
-*   `bot/database.py`: Contains ALL raw database interactions and SQL queries (via `asyncpg`).
+*   `db/` (top-level package, not in `bot/`): ALL SQL. `db/pool.py` holds the `psycopg_pool` connection pool; `db/users.py`, `accounts.py`, `categories.py`, `aliases.py`, `transactions.py` are repositories (async functions taking a connection, never committing).
 *   `bot/config.py`: Environment variable loading and configuration management.
 *   `bot/texts.py`: The single source of truth for user-facing strings and translations (Russian UI). Do NOT hardcode UI text in handlers.
 
@@ -51,12 +51,12 @@ This folder contains the core **business logic** and integrations.
 1.  **User sends text:** "Купил кофе за 200 рублей нал"
 2.  **Handler (`bot/handlers/expense.py`):** Catches the message.
 3.  **Service (`bot/services/llm.py`):** Parses the raw text into structured data (amount, category, date, account).
-4.  **Database (`bot/database.py`):** Executes the SQL `INSERT` statement.
+4.  **Database (`db/transactions.py`):** Executes the SQL `INSERT` inside the handler's `async with pool.connection()` block, which commits on success.
 5.  **Texts (`bot/texts.py`):** Retrieves the success message template.
 6.  **Handler (`bot/handlers/expense.py`):** Sends the success message back to the user.
 
 ## 4. Architectural Rules for Agents
 
 *   **Look here first:** If asked to add a new command, start in `bot/handlers/`. If asked to change how data is parsed, go to `bot/services/`.
-*   **No DB calls in handlers:** Never write SQL inside `bot/handlers/`. Always use functions from `bot/database.py`.
+*   **No DB calls in handlers:** Never write SQL inside `bot/handlers/`. Always use the repositories in `db/`.
 *   **Respect tests:** Before modifying `bot/services/`, ensure you review or write tests in the `tests/` directory.

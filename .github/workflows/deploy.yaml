@@ -88,7 +88,7 @@ jobs:
 
       # bot/ is linted once Stage 1 restructures it.
       - name: Lint
-        run: uv run ruff check budget_core tests
+        run: uv run ruff check budget_core db tests
 
       - name: Run Pytest
         env:

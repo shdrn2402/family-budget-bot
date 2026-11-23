@@ -15,21 +15,13 @@ async def test_inline_menu_main_shows_transactions():
     
     context = MagicMock()
     
-    with patch("bot.handlers.inline_menu.get_db_connection") as mock_db:
-        mock_conn = AsyncMock()
-        mock_db.return_value.__aenter__.return_value = mock_conn
-        mock_cur = AsyncMock()
-        
-        # Mock database returning 2 transactions
-        mock_cur.fetchall.return_value = [
-            {'id': 99, 'description': 'хлеб', 'amount': 50.0},
-            {'id': 100, 'description': 'такси', 'amount': 300.0}
-        ]
-        
-        mock_cursor_ctx = MagicMock()
-        mock_cursor_ctx.__aenter__.return_value = mock_cur
-        mock_conn.cursor = MagicMock(return_value=mock_cursor_ctx)
-        
+    # Database returning 2 transactions
+    rows = [
+        {'id': 99, 'description': 'хлеб', 'amount': 50.0},
+        {'id': 100, 'description': 'такси', 'amount': 300.0}
+    ]
+    with patch("bot.handlers.inline_menu.check_access", new_callable=AsyncMock, return_value=True), \
+         patch("db.transactions.list_by_ids", new_callable=AsyncMock, return_value=rows) as mock_list:
         # Call handler
         await inline_menu_handler(update, context)
         
@@ -54,6 +46,7 @@ async def test_inline_menu_main_shows_transactions():
         
         assert "такси" in keyboard[1][0].text.lower()
         assert keyboard[1][0].callback_data == "edit_tx:100:99,100:"
+        assert mock_list.await_args.args[1] == [99, 100]
 
 @pytest.mark.asyncio
 async def test_inline_menu_set_cat_grouping():
@@ -67,22 +60,14 @@ async def test_inline_menu_set_cat_grouping():
     
     context = MagicMock()
     
-    with patch("bot.handlers.inline_menu.get_db_connection") as mock_db:
-        mock_conn = AsyncMock()
-        mock_db.return_value.__aenter__.return_value = mock_conn
-        mock_cur = AsyncMock()
-        
-        # Mock database returning 3 categories across 2 parents
-        mock_cur.fetchall.return_value = [
-            {'id': 10, 'name': {'ru': 'Продукты'}, 'parent_name': {'ru': 'ПИТАНИЕ'}},
-            {'id': 11, 'name': {'ru': 'Кафе'}, 'parent_name': {'ru': 'ПИТАНИЕ'}},
-            {'id': 20, 'name': {'ru': 'Бензин'}, 'parent_name': {'ru': 'ТРАНСПОРТ'}},
-        ]
-        
-        mock_cursor_ctx = MagicMock()
-        mock_cursor_ctx.__aenter__.return_value = mock_cur
-        mock_conn.cursor = MagicMock(return_value=mock_cursor_ctx)
-        
+    # Database returning 3 categories across 2 parents
+    leaves = [
+        {'id': 10, 'name': {'ru': 'Продукты'}, 'parent_name': {'ru': 'ПИТАНИЕ'}},
+        {'id': 11, 'name': {'ru': 'Кафе'}, 'parent_name': {'ru': 'ПИТАНИЕ'}},
+        {'id': 20, 'name': {'ru': 'Бензин'}, 'parent_name': {'ru': 'ТРАНСПОРТ'}},
+    ]
+    with patch("bot.handlers.inline_menu.check_access", new_callable=AsyncMock, return_value=True), \
+         patch("db.categories.list_leaves", new_callable=AsyncMock, return_value=leaves):
         await inline_menu_handler(update, context)
         
         update.callback_query.edit_message_reply_markup.assert_called_once()

@@ -1,6 +1,6 @@
 """
 Pins the current behaviour of saving imported statement rows against a real database:
-bot/database.py save_transactions_bulk (no-match path) and get_latest_import_date.
+db.transactions.save_statement_rows (no-match path) and latest_date.
 Matching against existing rows is covered in test_core_reconciliation.py. Part of issue #11.
 """
 from datetime import datetime
@@ -10,7 +10,7 @@ import psycopg
 import pytest
 from psycopg import pq
 
-from bot.database import get_latest_import_date, get_user_card_account, save_transactions_bulk
+from db import accounts, transactions
 from tests.integration.conftest import CATEGORY_CASH_WITHDRAWAL, CATEGORY_RESTAURANTS, Household
 
 
@@ -44,7 +44,7 @@ async def test_new_rows_are_inserted_as_confirmed(db: psycopg.AsyncConnection, h
                        description="SALARY", comment="october"),
     ]
 
-    inserted = await save_transactions_bulk(household.other_user_id, lines, db)
+    inserted = await transactions.save_statement_rows(db, household.other_user_id, lines)
 
     assert inserted == 2
     assert await _rows(db) == [
@@ -64,7 +64,7 @@ async def test_status_from_the_parser_is_ignored(db: psycopg.AsyncConnection, ho
     line = statement_line(household.transit_account, -15, datetime(2026, 10, 3), "bit_1",
                           source_type="import_bit", status="draft")
 
-    await save_transactions_bulk(household.user_id, [line], db)
+    await transactions.save_statement_rows(db, household.user_id, [line])
 
     assert [r["status"] for r in await _rows(db)] == ["confirmed"]
 
@@ -74,10 +74,10 @@ async def test_duplicate_external_ids_are_skipped(db: psycopg.AsyncConnection, h
         statement_line(household.own_card_account, -10, datetime(2026, 10, 3), "isracard_1"),
         statement_line(household.own_card_account, -20, datetime(2026, 10, 4), "isracard_2"),
     ]
-    assert await save_transactions_bulk(household.user_id, lines, db) == 2
+    assert await transactions.save_statement_rows(db, household.user_id, lines) == 2
 
     again = lines + [statement_line(household.own_card_account, -30, datetime(2026, 10, 5), "isracard_3")]
-    assert await save_transactions_bulk(household.user_id, again, db) == 1
+    assert await transactions.save_statement_rows(db, household.user_id, again) == 1
 
     assert [r["external_id"] for r in await _rows(db)] == ["isracard_1", "isracard_2", "isracard_3"]
 
@@ -91,7 +91,7 @@ async def test_transfer_offset_rows_are_kept(db: psycopg.AsyncConnection, househ
                                 description="ATM", category_id=CATEGORY_CASH_WITHDRAWAL)
     offset = {**withdrawal, "amount": 200, "account_id": household.cash_account, "external_id": "leumi_7_offset"}
 
-    assert await save_transactions_bulk(household.user_id, [withdrawal, offset], db) == 2
+    assert await transactions.save_statement_rows(db, household.user_id, [withdrawal, offset]) == 2
 
     rows = await _rows(db)
     assert [(r["account_id"], r["amount"], r["external_id"]) for r in rows] == [
@@ -101,15 +101,15 @@ async def test_transfer_offset_rows_are_kept(db: psycopg.AsyncConnection, househ
 
 
 async def test_latest_import_date_per_source(db: psycopg.AsyncConnection, household: Household) -> None:
-    assert await get_latest_import_date("import_bit", db) is None
+    assert await transactions.latest_date(db, "import_bit") is None
 
-    await save_transactions_bulk(household.user_id, [
+    await transactions.save_statement_rows(db, household.user_id, [
         statement_line(household.transit_account, -5, datetime(2026, 9, 1), "bit_a", source_type="import_bit"),
         statement_line(household.transit_account, -6, datetime(2026, 9, 20), "bit_b", source_type="import_bit"),
         statement_line(household.own_card_account, -7, datetime(2026, 10, 30), "isracard_c"),
-    ], db)
+    ])
 
-    latest = await get_latest_import_date("import_bit", db)
+    latest = await transactions.latest_date(db, "import_bit")
     assert latest is not None and latest.date().isoformat() == "2026-09-20"
 
 
@@ -126,7 +126,7 @@ async def test_database_errors_are_raised_and_rolled_back(
     ]
 
     with pytest.raises(psycopg.errors.CheckViolation):
-        await save_transactions_bulk(household.user_id, lines, db)
+        await transactions.save_statement_rows(db, household.user_id, lines)
 
     assert db.info.transaction_status == pq.TransactionStatus.IDLE
     assert await _rows(db) == []
@@ -134,6 +134,6 @@ async def test_database_errors_are_raised_and_rolled_back(
 
 async def test_uploaders_own_card_account(db: psycopg.AsyncConnection, household: Household) -> None:
     """Used for card-paid lines in Bit exports (#12), instead of a hard-coded account."""
-    assert (await get_user_card_account(household.user_id, db))["id"] == household.own_card_account
-    assert (await get_user_card_account(household.other_user_id, db))["id"] == household.other_card_account
-    assert await get_user_card_account(424242, db) is None
+    assert (await accounts.find_owned_card(db, household.user_id))["id"] == household.own_card_account
+    assert (await accounts.find_owned_card(db, household.other_user_id))["id"] == household.other_card_account
+    assert await accounts.find_owned_card(db, 424242) is None

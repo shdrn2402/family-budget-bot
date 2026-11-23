@@ -1,7 +1,7 @@
 import logging
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
-from bot.database import get_recent_transactions, get_transactions_count
+from db import pool, transactions
 from bot.handlers.common import check_access
 from bot.texts import get_text
 
@@ -24,16 +24,17 @@ async def build_history_page(user_id: int, lang: str | None, page: int = 0) -> t
     """Build the text and keyboard for a specific history page."""
     offset = page * PAGE_SIZE
     
-    transactions = await get_recent_transactions(user_id, limit=PAGE_SIZE, offset=offset)
-    total_count = await get_transactions_count(user_id)
-    
-    if not transactions and page == 0:
+    async with pool.connection() as conn:
+        rows = await transactions.list_recent(conn, user_id, limit=PAGE_SIZE, offset=offset)
+        total_count = await transactions.count(conn, user_id)
+
+    if not rows and page == 0:
         return get_text("history_empty", lang), None
         
     lines = [get_text("history_header", lang)]
     tx_ids = []
     
-    for t in transactions:
+    for t in rows:
         tx_ids.append(str(t['id']))
         acc_name = "Unknown"
         account_name_raw = t.get('account_name')

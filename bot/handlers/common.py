@@ -3,14 +3,7 @@ from telegram import InlineKeyboardMarkup, InlineKeyboardButton, Update
 from telegram.ext import ContextTypes
 from bot.config import Config
 from bot.texts import get_text
-from bot.database import (
-    check_user_exists, 
-    register_user, 
-    get_user_linked_account, 
-    get_unlinked_accounts, 
-    link_user_to_account,
-    get_db_connection
-)
+from db import accounts, pool, users
 
 logger = logging.getLogger(__name__)
 
@@ -24,43 +17,45 @@ async def check_access(update: Update) -> bool:
         return False
         
     user_id: int = update.effective_user.id
-    
-    # Check if user is already in the database
-    is_registered: bool = await check_user_exists(user_id)
-    
-    if not is_registered:
-        if user_id in Config.ALLOWED_USER_IDS:
-            logger.info(f"Auto-registering allowed user {user_id}")
-            name: str = update.effective_user.first_name or f"User {user_id}"
-            is_admin: bool = (len(Config.ALLOWED_USER_IDS) > 0 and user_id == Config.ALLOWED_USER_IDS[0])
-            success: bool = await register_user(user_id, name, is_admin=is_admin)
-            
-            if success:
-                # Attempt to auto-link to a personal account based on name
-                free_accounts = await get_unlinked_accounts()
-                for acc in free_accounts:
-                    en_name = acc['name'].get('en', '').lower()
-                    ru_name = acc['name'].get('ru', '').lower()
-                    tg_name_lower = name.lower()
-                    
-                    if tg_name_lower == en_name or tg_name_lower == ru_name:
-                        await link_user_to_account(user_id, acc['id'])
-                        logger.info(f"Auto-linked user {user_id} ({name}) to account {acc['id']}")
-                        break
-            else:
-                logger.error(f"Failed to auto-register user {user_id}")
-                return False
-        else:
-            logger.warning(f"Unauthorized access attempt by ID {user_id}")
-            
-            lang_code: str | None = update.effective_user.language_code
-            reply_text: str = get_text("access_denied", lang_code)
-            
-            if update.message:
-                await update.message.reply_text(reply_text)
-            return False
-            
-    return True
+
+    try:
+        async with pool.connection() as conn:
+            if await users.exists(conn, user_id):
+                return True
+            if user_id in Config.ALLOWED_USER_IDS:
+                await _register_allowed_user(conn, user_id, update.effective_user.first_name)
+                return True
+    except Exception:
+        # Fail closed: without the database we can't tell who may use the bot.
+        logger.exception(f"Database error checking access for user {user_id}")
+        return False
+
+    logger.warning(f"Unauthorized access attempt by ID {user_id}")
+    lang_code: str | None = update.effective_user.language_code
+    if update.message:
+        await update.message.reply_text(get_text("access_denied", lang_code))
+    return False
+
+
+def _match_account_by_name(free_accounts: list[dict], telegram_name: str) -> dict | None:
+    """The free account whose English or Russian name equals the Telegram first name (any case)."""
+    tg_name_lower = telegram_name.lower()
+    for acc in free_accounts:
+        if tg_name_lower in (acc['name'].get('en', '').lower(), acc['name'].get('ru', '').lower()):
+            return acc
+    return None
+
+
+async def _register_allowed_user(conn, user_id: int, first_name: str | None) -> None:
+    """Register a user from ALLOWED_USER_IDS (the first one is the admin) and link their account by name."""
+    logger.info(f"Auto-registering allowed user {user_id}")
+    name: str = first_name or f"User {user_id}"
+    is_admin: bool = user_id == Config.ALLOWED_USER_IDS[0]
+    await users.register(conn, user_id, name, is_admin=is_admin)
+
+    acc = _match_account_by_name(await accounts.list_unlinked_cards(conn), name)
+    if acc and await accounts.claim(conn, user_id, acc['id']):
+        logger.info(f"Auto-linked user {user_id} to account {acc['id']}")
 
 async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle the /start command with automated or manual account linking."""
@@ -70,8 +65,17 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     user_id = update.effective_user.id
     lang = update.effective_user.language_code or 'ru'
     
-    # 1. Check if user already has a linked account
-    linked_account = await get_user_linked_account(user_id)
+    telegram_name = update.effective_user.first_name or ""
+
+    async with pool.connection() as conn:
+        # 1. Check if user already has a linked account
+        linked_account = await accounts.find_linked(conn, user_id)
+        if not linked_account:
+            # 2. Attempt auto-recognition (case-insensitive first name check) among the free accounts
+            free_accounts = await accounts.list_unlinked_cards(conn)
+            matched_account = _match_account_by_name(free_accounts, telegram_name)
+            linked_now = bool(matched_account) and await accounts.claim(conn, user_id, matched_account['id'])
+
     if linked_account:
         account_name = linked_account['name'].get(lang, linked_account['name'].get('ru'))
         reply_text = (
@@ -81,27 +85,8 @@ async def start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await update.message.reply_text(reply_text)
         return
 
-    # 2. Retrieve user's family info
-    user_id = update.effective_user.id
-    telegram_name = update.effective_user.first_name or ""
-
-    # Get free accounts
-    free_accounts = await get_unlinked_accounts()
-
-    # 3. Attempt auto-recognition (case-insensitive first name check)
-    matched_account = None
-    for acc in free_accounts:
-        en_name = acc['name'].get('en', '').lower()
-        ru_name = acc['name'].get('ru', '').lower()
-        tg_name_lower = telegram_name.lower()
-        
-        if tg_name_lower == en_name or tg_name_lower == ru_name:
-            matched_account = acc
-            break
-
     if matched_account:
-        success = await link_user_to_account(user_id, matched_account['id'])
-        if success:
+        if linked_now:
             acc_name = matched_account['name'].get(lang, matched_account['name'].get('ru'))
             reply_text = (
                 f"🎉 Ура! Я автоматически распознал ваш профиль и привязал вас к счету <b>«{acc_name}»</b>.\n"
@@ -154,15 +139,16 @@ async def link_account_callback_handler(update: Update, context: ContextTypes.DE
     
     account_id = int(query.data.split(":")[1])
 
-    success = await link_user_to_account(user_id, account_id)
+    try:
+        async with pool.connection() as conn:
+            success = await accounts.claim(conn, user_id, account_id)
+            name = await accounts.get_name(conn, account_id) if success else None
+    except Exception:
+        logger.exception(f"Database error linking user {user_id} to account {account_id}")
+        success = False
+
     if success:
-        # Get account details
-        async with await get_db_connection() as conn:
-            async with conn.cursor() as cur:
-                await cur.execute("SELECT name FROM accounts WHERE id = %s;", (account_id,))
-                acc = await cur.fetchone()
-                
-        acc_name = acc['name'].get(lang, acc['name'].get('ru')) if acc else ""
+        acc_name = name.get(lang, name.get('ru')) if name else ""
         
         reply_text = (
             f"✅ Успешно! Вы связали свой Telegram со счетом <b>«{acc_name}»</b>.\n"

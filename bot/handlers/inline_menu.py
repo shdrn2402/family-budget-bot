@@ -1,9 +1,9 @@
 import logging
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
-from bot.database import get_db_connection
 from bot.handlers.common import check_access
-from psycopg.rows import dict_row
+from bot.services.expense import resolve_amount_sign
+from db import aliases, categories, pool, transactions
 
 from bot.texts import get_text
 
@@ -52,17 +52,11 @@ async def inline_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
                 await query.edit_message_reply_markup(reply_markup=None)
                 return
                 
-            async with await get_db_connection() as conn:
-                async with conn.cursor(row_factory=dict_row) as cur:
-                    placeholders = ",".join(["%s"] * len(tx_ids))
-                    await cur.execute(
-                        f"SELECT id, description, amount FROM transactions WHERE id IN ({placeholders}) ORDER BY id",
-                        tuple(tx_ids)
-                    )
-                    transactions = await cur.fetchall()
-            
+            async with pool.connection() as conn:
+                rows = await transactions.list_by_ids(conn, tx_ids)
+
             keyboard = []
-            for tx in transactions:
+            for tx in rows:
                 # Pass both the context IDs and page to the next level
                 keyboard.append([InlineKeyboardButton(
                     f"📝 {tx['description'].capitalize()} ({tx['amount']})", 
@@ -103,10 +97,8 @@ async def inline_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             
         elif data.startswith("delete_tx:"):
             _, tx_id, tx_ids_str, page = data.split(":")
-            async with await get_db_connection() as conn:
-                async with conn.cursor() as cur:
-                    await cur.execute("DELETE FROM transactions WHERE id = %s", (tx_id,))
-                await conn.commit()
+            async with pool.connection() as conn:
+                await transactions.delete(conn, int(tx_id))
             
             await query.answer(get_text("record_deleted", user_lang))
             
@@ -162,25 +154,14 @@ async def inline_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
             _, tx_id, tx_ids_str, page = data.split(":")
             lang = user_lang or "ru"
             
-            async with await get_db_connection() as conn:
-                async with conn.cursor(row_factory=dict_row) as cur:
-                    await cur.execute("""
-                        SELECT c.id, c.name, p.name as parent_name 
-                        FROM categories c
-                        JOIN categories p ON c.parent_id = p.id
-                        WHERE NOT EXISTS (
-                            SELECT 1 FROM categories sub
-                            WHERE sub.parent_id = c.id
-                        )
-                        ORDER BY p.id, c.id;
-                    """)
-                    categories = await cur.fetchall()
-            
+            async with pool.connection() as conn:
+                leaves = await categories.list_leaves(conn)
+
             keyboard = []
             row = []
             current_parent = None
-            
-            for cat in categories:
+
+            for cat in leaves:
                 # get parent name
                 p_name_dict = cat['parent_name']
                 p_name = p_name_dict.get(lang, p_name_dict.get('ru', p_name_dict.get('en', 'Unknown')))
@@ -207,38 +188,20 @@ async def inline_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
         elif data.startswith("save_cat:"):
             _, tx_id, cat_id, tx_ids_str, page = data.split(":")
             lang = user_lang or "ru"
-            from bot.database import sync_category_by_alias
-            
-            async with await get_db_connection() as conn:
-                async with conn.cursor(row_factory=dict_row) as cur:
-                    cat_id_int = int(cat_id)
-                    await cur.execute("SELECT amount, description, comment, user_id FROM transactions WHERE id = %s", (tx_id,))
-                    row = await cur.fetchone()
-                    if row:
-                        current_amount = row['amount']
-                        tx_user_id = row['user_id']
-                        description = row['description'] or ""
-                        comment = row['comment'] or ""
-                        
-                        # Generate composite alias string
-                        alias_name = f"{description} {comment}".strip()
-                        
-                        # Fetch parent_id to resolve sign correctly
-                        await cur.execute("SELECT parent_id FROM categories WHERE id = %s", (cat_id_int,))
-                        cat_row = await cur.fetchone()
-                        parent_id = cat_row['parent_id'] if cat_row else None
-                        
-                        from bot.services.expense import resolve_amount_sign
-                        new_amount = resolve_amount_sign(current_amount, parent_id)
-                        
-                        await cur.execute("UPDATE transactions SET category_id = %s, amount = %s WHERE id = %s", (cat_id_int, new_amount, tx_id))
-                        
-                await conn.commit()
-                
-                # Sync aliases out of the cursor block
-                if row and alias_name:
-                    await sync_category_by_alias(alias_name, cat_id_int, tx_user_id, conn)
-            
+            cat_id_int = int(cat_id)
+
+            # Known issue #37: this also rewrites the merchant rule for future imports.
+            async with pool.connection() as conn:
+                tx = await transactions.get(conn, int(tx_id))
+                if tx:
+                    parent_id = await categories.get_parent_id(conn, cat_id_int)
+                    new_amount = resolve_amount_sign(tx['amount'], parent_id)
+                    await transactions.set_category(conn, tx['id'], cat_id_int, new_amount)
+
+                    alias_name = f"{tx['description'] or ''} {tx['comment'] or ''}".strip()
+                    if alias_name:
+                        await aliases.learn(conn, alias_name, cat_id_int, tx['user_id'])
+
             confirm_text = get_text("category_saved", lang)
             await context.bot.send_message(chat_id=update.effective_chat.id, text=confirm_text)
             

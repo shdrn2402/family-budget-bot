@@ -1,6 +1,6 @@
 """
 Reconciliation checks that are not about the final ledger, so they don't fit the scenario
-dataset. The ledger outcomes of save_transactions_bulk (bot/database.py) are described as
+dataset. The ledger outcomes of db.transactions.save_statement_rows are described as
 data in tests/fixtures/scenarios/ and replayed by tests/integration/test_scenarios.py.
 
 Matching rule: same account, same amount, date within ±3 days, and the existing row is
@@ -15,7 +15,7 @@ import psycopg
 import pytest
 from psycopg import pq
 
-from bot.database import save_transactions_bulk
+from db import transactions
 from bot.services.expense import save_expense_item
 from tests.integration.conftest import CATEGORY_RESTAURANTS, Household
 from tests.integration.test_core_import import statement_line
@@ -48,16 +48,16 @@ async def _rows(db: psycopg.AsyncConnection) -> list[dict[str, Any]]:
 
 
 async def _existing_card_line(db: psycopg.AsyncConnection, household: Household) -> None:
-    assert await save_transactions_bulk(household.user_id, [
+    assert await transactions.save_statement_rows(db, household.user_id, [
         statement_line(household.own_card_account, -80, _at(DAY), "isracard_bit", description="BIT TRANSFER"),
-    ], db) == 1
+    ]) == 1
 
 
 async def _existing_bit_line(db: psycopg.AsyncConnection, household: Household) -> None:
-    assert await save_transactions_bulk(household.user_id, [
+    assert await transactions.save_statement_rows(db, household.user_id, [
         statement_line(household.own_card_account, -80, _at(DAY), "bit_existing", source_type="import_bit",
                        description="Transfer", comment="Alice"),
-    ], db) == 1
+    ]) == 1
 
 
 async def _existing_pending_entry(db: psycopg.AsyncConnection, household: Household) -> None:
@@ -83,9 +83,9 @@ async def test_oldest_row_wins_among_equally_close_candidates(
     await db.execute("UPDATE transactions SET comment = 'touched' WHERE id = %s", (older,))
     await db.commit()
 
-    await save_transactions_bulk(household.user_id, [
+    await transactions.save_statement_rows(db, household.user_id, [
         statement_line(household.own_card_account, -50, _at(DAY), "isracard_oldest"),
-    ], db)
+    ])
 
     rows = await _rows(db)
     assert [(r["id"] == older, r["status"]) for r in rows] == [(True, "confirmed"), (False, "pending")]
@@ -107,7 +107,7 @@ async def test_a_bit_match_merges_and_the_rest_of_the_batch_is_saved(
     await existing(db, household)
     unrelated = statement_line(household.bank_account, -999, _at(DAY, 20), "unrelated_line")
 
-    assert await save_transactions_bulk(household.user_id, [incoming(household), unrelated], db) == 2
+    assert await transactions.save_statement_rows(db, household.user_id, [incoming(household), unrelated]) == 2
 
     assert db.info.transaction_status == pq.TransactionStatus.IDLE  # committed, no open transaction
     rows = await _rows(db)

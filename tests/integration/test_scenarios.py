@@ -3,7 +3,7 @@ Replays every scenario in tests/fixtures/scenarios/ on a fresh database through 
 own functions, then compares the ledger with the scenario's expected rows.
 
 - manual_entry      -> bot.services.expense.save_expense_item (as the bot does for typed entries)
-- statement_import  -> prepare_statement_batch + save_transactions_bulk (as the import handler does
+- statement_import  -> prepare_statement_batch + save_statement_rows (as the import handler does
                        after parsing; file parsing itself is covered by test_statement_fixtures.py)
 - stored_row        -> a plain INSERT, for rows left by older code
 
@@ -18,7 +18,7 @@ import psycopg
 import pytest
 import yaml
 
-from bot.database import get_all_item_aliases, save_transactions_bulk
+from db import aliases, transactions
 from bot.services.expense import save_expense_item
 from bot.services.statement_batch import prepare_statement_batch
 from tests.scenario_loader import Household, Scenario, load_household, load_scenario, normalize_row, scenario_paths
@@ -84,8 +84,8 @@ async def _run_step(db: psycopg.AsyncConnection, household: Household, kind: str
 
     elif kind == "statement_import":
         lines = [_statement_line(household, line) for line in step["lines"]]
-        batch = prepare_statement_batch(lines, await get_all_item_aliases(db))
-        saved = await save_transactions_bulk(user_id, batch, db)
+        batch = prepare_statement_batch(lines, await aliases.get_all(db))
+        saved = await transactions.save_statement_rows(db, user_id, batch)
         if "expect_saved" in step:
             assert saved == step["expect_saved"], f"saved {saved} rows"
 

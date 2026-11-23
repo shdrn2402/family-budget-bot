@@ -20,29 +20,12 @@ async def test_expense_handler_sends_inline_keyboard():
     
     # Mock check_access (allow access)
     with patch("bot.handlers.expense.check_access", new_callable=AsyncMock) as mock_check_access, \
-         patch("bot.handlers.expense.get_db_connection") as mock_db, \
-         patch("bot.database.get_user_info", new_callable=AsyncMock) as mock_user_info, \
-         patch("bot.database.get_account_type", new_callable=AsyncMock) as mock_account_type, \
+         patch("db.accounts.get_type", new_callable=AsyncMock, return_value='cash'), \
+         patch("db.transactions.insert_manual", new_callable=AsyncMock, return_value=99), \
          patch("bot.handlers.expense.process_expense_text", new_callable=AsyncMock) as mock_process:
-        
+
         mock_check_access.return_value = True
-        mock_user_info.return_value = {'id': 123, 'name': 'Test User'}
-        mock_account_type.return_value = 'cash'
-        
-        # Setup mock db context manager
-        mock_conn = AsyncMock()
-        mock_db.return_value.__aenter__.return_value = mock_conn
-        mock_cur = AsyncMock()
-        # Mock INSERT RETURNING id
-        mock_cur.execute.return_value = None
-        mock_cur.fetchone.return_value = {'id': 99}
-        
-        # cursor() is a sync method in psycopg that returns an async context manager
-        mock_conn.cursor = MagicMock()
-        mock_cursor_ctx = MagicMock()
-        mock_cursor_ctx.__aenter__.return_value = mock_cur
-        mock_conn.cursor.return_value = mock_cursor_ctx
-        
+
         # Mock process_expense_text returning 2 valid items
         mock_process.return_value = [
             {

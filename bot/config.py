@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from psycopg.conninfo import make_conninfo
 
 # Load environment variables from .env file
 load_dotenv()
@@ -21,3 +22,9 @@ class Config:
     # Timezone Configuration
     BOT_TIMEZONE: str = os.getenv("BOT_TIMEZONE", "UTC")
 
+    @classmethod
+    def db_conninfo(cls) -> str:
+        """libpq connection string for the bot's database (unset parts are left out)."""
+        return make_conninfo(
+            dbname=cls.DB_NAME, user=cls.DB_USER, password=cls.DB_PASSWORD, host=cls.DB_HOST, port=cls.DB_PORT
+        )

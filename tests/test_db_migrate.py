@@ -62,13 +62,21 @@ def test_main_runs_migrations_before_polling() -> None:
     with patch.object(bot.main.Config, "TELEGRAM_TOKEN", "test_token"), \
          patch("bot.main.run_migrations", side_effect=lambda: calls.append("migrations")), \
          patch("bot.main.ApplicationBuilder") as builder:
-        builder.return_value.token.return_value.build.return_value = app
+        configured = builder.return_value.token.return_value
+        configured.post_init.return_value.post_shutdown.return_value.build.return_value = app
         bot.main.main()
 
     assert calls == ["migrations", "polling"]
+    # The connection pool opens inside the bot's event loop and closes on shutdown.
+    configured.post_init.assert_called_once_with(bot.main._open_db_pool)
+    configured.post_init.return_value.post_shutdown.assert_called_once_with(bot.main._close_db_pool)
 
 
 def test_init_db_is_removed() -> None:
-    import bot.database
+    """The old bot/database.py (with init_db) is gone; db/ has no schema setup either."""
+    import importlib.util
 
-    assert not hasattr(bot.database, "init_db")
+    import db.pool
+
+    assert importlib.util.find_spec("bot.database") is None
+    assert not hasattr(db.pool, "init_db")

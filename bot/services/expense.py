@@ -1,8 +1,7 @@
 import logging
 from typing import List, Dict, Any, Optional
 import psycopg
-from psycopg.rows import dict_row
-from bot.database import get_account_type
+from db import accounts, aliases, categories, transactions
 import zoneinfo
 from datetime import datetime, date, timedelta
 from bot.config import Config
@@ -129,40 +128,16 @@ async def parse_expense_message(text: str, user_id: int, conn: psycopg.AsyncConn
     return results
 
 async def resolve_account(alias: str, user_id: int, conn: psycopg.AsyncConnection) -> Optional[int]:
-    """Find account ID from account_aliases table or dynamically via owner_id."""
+    """Find the account a typed word names: 'карта'/'card' is the user's own card, else account_aliases."""
     alias = alias.lower().strip()
     if alias in ['карта', 'card']:
-        async with conn.cursor(row_factory=dict_row) as cur:
-            await cur.execute(
-                "SELECT id FROM accounts WHERE type = 'card' AND owner_id = %s LIMIT 1;",
-                (user_id,)
-            )
-            row = await cur.fetchone()
-            if row:
-                return row['id']
-            return None
-
-    async with conn.cursor(row_factory=dict_row) as cur:
-        await cur.execute(
-            "SELECT account_id FROM account_aliases WHERE name = %s;", 
-            (alias,)
-        )
-        row = await cur.fetchone()
-        if row:
-            return row['account_id']
-    return None
+        card = await accounts.find_owned_card(conn, user_id)
+        return card['id'] if card else None
+    return await accounts.find_by_alias(conn, alias)
 
 async def resolve_category_from_alias(item_name: str, conn: psycopg.AsyncConnection) -> Optional[int]:
     """Find category ID from item_aliases table."""
-    async with conn.cursor(row_factory=dict_row) as cur:
-        await cur.execute(
-            "SELECT category_id FROM item_aliases WHERE name = %s;", 
-            (item_name.lower().strip(),)
-        )
-        row = await cur.fetchone()
-        if row:
-            return row['category_id']
-    return None
+    return await aliases.find_category(conn, item_name.lower().strip())
 
 async def process_expense_text(text: str, user_id: int, conn: psycopg.AsyncConnection) -> List[Dict[str, Any]]:
     """
@@ -189,21 +164,14 @@ async def save_expense_item(item: dict, user_id: int, lang: str, conn: psycopg.A
     if not account_id:
         return {"error": "account_not_found"}
         
-    account_type = await get_account_type(account_id, conn)
+    account_type = await accounts.get_type(conn, account_id)
     status = 'confirmed' if account_type == 'cash' else 'pending'
     
     if account_type == 'card':
         if abs(amount) > 150:
             return {"error": "card_limit_exceeded"}
         
-    parent_id = None
-    if category_id:
-        async with conn.cursor() as cur:
-            await cur.execute("SELECT parent_id FROM categories WHERE id = %s", (category_id,))
-            cat_row = await cur.fetchone()
-            if cat_row:
-                # `cat_row` might be a tuple or dict depending on row_factory, let's handle both safely
-                parent_id = cat_row[0] if isinstance(cat_row, tuple) else cat_row.get('parent_id')
+    parent_id = await categories.get_parent_id(conn, category_id) if category_id else None
 
     # If it matched no category but has income keywords, fallback to Other Income (13)
     if not category_id and any(word in item_name.split() for word in INCOME_KEYWORDS):
@@ -214,20 +182,21 @@ async def save_expense_item(item: dict, user_id: int, lang: str, conn: psycopg.A
     
     tx_date = item.get('date') or get_local_date().isoformat()
     
-    query = """
-        INSERT INTO transactions (user_id, account_id, category_id, amount, description, comment, date, source_type, status)
-        VALUES (%s, %s, %s, %s, %s, %s, %s::date, %s, %s)
-        RETURNING id;
-    """
-    
-    params = [user_id, account_id, category_id, db_amount, item_name, comment, tx_date, source_type, status]
-    
-    async with conn.cursor() as cur:
-        await cur.execute(query, tuple(params))
-        row = await cur.fetchone()
-        
+    tx_id = await transactions.insert_manual(
+        conn,
+        user_id=user_id,
+        account_id=account_id,
+        category_id=category_id,
+        amount=db_amount,
+        description=item_name,
+        comment=comment,
+        day=tx_date,
+        source_type=source_type,
+        status=status,
+    )
+
     return {
-        "id": row['id'] if row else None,
+        "id": tx_id,
         "db_amount": db_amount,
         "status": status
     }
