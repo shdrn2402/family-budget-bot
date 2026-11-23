@@ -28,7 +28,7 @@ graph TD
 *   💬 **Quick Text Entry:** One message can log several expenses in the format `item account amount [comment]`, separated by commas (e.g. *"coffee cash 15, bus card 6 yesterday"*). Account words are aliases from `account_aliases`; *"yesterday"/"today"* set the date. If any part can't be read, nothing is saved and the bot replies with the expected format.
 *   ⏳ **Debounced Batch Statement Loading:** Groups multiple statement uploads (Excel/XLSX) sent in a single batch, processes them in one operation, and outputs a single aggregated report to avoid message spam.
 *   📊 **Bit Statement Import & Reconciliation:** Parses Bit CSV exports, matches/enriches existing bank and credit card statement transactions, and handles direct card expenses and transit balance movements without duplication.
-*   🗃 **Alias Learning:** Changing a transaction's category from the bot's menu saves the merchant pattern (description + comment) to `item_aliases` and applies it to matching uncategorized transactions, so future statements are categorized automatically.
+*   🗃 **Alias Learning:** Changing a transaction's category from the bot's menu saves the merchant pattern (description + comment) to `app.merchant_rules` and applies it to matching uncategorized transactions, so future statements are categorized automatically.
 *   🤖 **Bilingual Interface:** Supports dynamic runtime localization (English/Russian) through a centralized translation system (`bot/texts.py`).
 *   🔒 **Access Control Whitelist:** Restricts access to predefined Telegram User IDs with granular admin flags (`is_admin`).
 

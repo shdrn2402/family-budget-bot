@@ -1,7 +1,7 @@
 import logging
 from typing import List, Dict, Any, Optional
 import psycopg
-from db import accounts, aliases, categories, transactions
+from db import accounts, categories, merchant_rules, transactions
 import zoneinfo
 from datetime import datetime, date, timedelta
 from bot.config import Config
@@ -136,8 +136,8 @@ async def resolve_account(alias: str, user_id: int, conn: psycopg.AsyncConnectio
     return await accounts.find_by_alias(conn, alias)
 
 async def resolve_category_from_alias(item_name: str, conn: psycopg.AsyncConnection) -> Optional[int]:
-    """Find category ID from item_aliases table."""
-    return await aliases.find_category(conn, item_name.lower().strip())
+    """Find the category of a typed item name (app.merchant_rules)."""
+    return await merchant_rules.find_category(conn, item_name.lower().strip())
 
 async def process_expense_text(text: str, user_id: int, conn: psycopg.AsyncConnection) -> List[Dict[str, Any]]:
     """

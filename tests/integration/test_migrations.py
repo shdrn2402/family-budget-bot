@@ -146,3 +146,43 @@ def test_merged_external_id_is_unique_and_its_migration_reverses_cleanly(
     downgrade_to("0002", url)
     with connect(url) as downgraded, connect(before_url) as before:
         assert schema_snapshot(downgraded) == schema_snapshot(before)
+
+
+def test_item_aliases_move_to_app_merchant_rules_and_back(create_database: Callable[[], URL]) -> None:
+    """0004 moves the rules into app.merchant_rules, keeping ids (#62); downgrading restores 0003."""
+    from bot.db_migrate import downgrade_to
+
+    before_url = create_database()
+    upgrade_to("0003", before_url)
+
+    url = create_database()
+    upgrade_to("0003", url)
+    with connect(url) as conn:
+        conn.execute(
+            "INSERT INTO budget.categories (id, name) VALUES (19, '{\"en\": \"a\"}'), (26, '{\"en\": \"b\"}')"
+        )
+        conn.execute(
+            "INSERT INTO budget.item_aliases (id, name, category_id) VALUES "
+            "(7, 'testcoffee', 19), (9, 'TESTMERCHANT', 26), (12, 'no category', NULL)"
+        )
+        conn.commit()
+
+    upgrade_to("0004", url)
+    with connect(url) as conn:
+        rules = conn.execute("SELECT id, pattern, category_id FROM app.merchant_rules ORDER BY id").fetchall()
+        assert rules == [(7, "testcoffee", 19), (9, "TESTMERCHANT", 26)]  # a rule without a category is dropped
+        assert conn.execute("SELECT to_regclass('budget.item_aliases')").fetchone() == (None,)
+        # New rules continue after the copied ids.
+        new_id = conn.execute(
+            "INSERT INTO app.merchant_rules (pattern, category_id) VALUES ('new', 19) RETURNING id"
+        ).fetchone()[0]
+        assert new_id > 12
+        conn.rollback()
+
+    downgrade_to("0003", url)
+    with connect(url) as downgraded, connect(before_url) as before:
+        assert schema_snapshot(downgraded) == schema_snapshot(before)
+        assert downgraded.execute("SELECT to_regnamespace('app')").fetchone() == (None,)
+        assert downgraded.execute("SELECT id, name, category_id FROM budget.item_aliases ORDER BY id").fetchall() == [
+            (7, "testcoffee", 19), (9, "TESTMERCHANT", 26)
+        ]

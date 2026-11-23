@@ -18,7 +18,7 @@ To ensure the bot remains fast and efficient, especially when handling batch imp
 ## 3. Atomic Updates
 *   When a user categorizes a transaction, implement a "ripple effect":
     1. Update the specific transaction.
-    2. Add/Update the `item_aliases` table.
+    2. Add/Update the `app.merchant_rules` table.
     3. Update all other NULL-category transactions with the same description in **one** query.
 
 ## 4. Query Efficiency

@@ -5,7 +5,7 @@ from datetime import datetime
 from telegram import Update, Message
 from telegram.ext import ContextTypes
 from bot.services.importer import BitCardAccountMissing, import_excel_file
-from db import accounts, aliases, pool
+from db import accounts, merchant_rules, pool
 from db.transactions import latest_date, save_statement_rows
 from bot.services.statement_batch import prepare_statement_batch
 from bot.handlers.common import check_access
@@ -221,7 +221,7 @@ async def process_batch(
     try:
         async with pool.connection() as conn:
             # Load aliases to auto-categorize
-            db_aliases = await aliases.get_all(conn)
+            db_aliases = await merchant_rules.get_all(conn)
 
             all_transactions = prepare_statement_batch(all_transactions, db_aliases)
 

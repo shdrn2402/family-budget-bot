@@ -3,7 +3,7 @@ from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 from bot.handlers.common import check_access
 from bot.services.expense import resolve_amount_sign
-from db import aliases, categories, pool, transactions
+from db import categories, merchant_rules, pool, transactions
 
 from bot.texts import get_text
 
@@ -200,7 +200,7 @@ async def inline_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
                     alias_name = f"{tx['description'] or ''} {tx['comment'] or ''}".strip()
                     if alias_name:
-                        await aliases.learn(conn, alias_name, cat_id_int, tx['user_id'])
+                        await merchant_rules.learn(conn, alias_name, cat_id_int, tx['user_id'])
 
             confirm_text = get_text("category_saved", lang)
             await context.bot.send_message(chat_id=update.effective_chat.id, text=confirm_text)
