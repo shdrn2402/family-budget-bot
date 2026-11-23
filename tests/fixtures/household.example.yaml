@@ -1,0 +1,46 @@
+# Example household file: the format of the private file loaded with scripts/load_household.py.
+# Everything here is made up. The real file lives outside the repo and is never committed.
+
+users:                       # optional; Telegram users the accounts below belong to
+  - {id: 1001, name: Alice, is_admin: true}
+  - {id: 1002, name: Bob}
+
+accounts:                    # upserted by id
+  - id: 1
+    name: {en: Alice Card, ru: Карта Алисы}
+    type: card
+    owner: 1001
+    card_last4: "1111"       # an Isracard file starting with these digits goes to this card
+    role: default_card       # Isracard files with unknown digits go here
+    aliases: [alicecard]
+  - id: 2
+    name: {en: Bob Card, ru: Карта Боба}
+    type: card
+    owner: 1002
+    card_last4: "2222"
+  - id: 3
+    name: {en: Family Bank, ru: Семейный счёт}
+    type: card
+    role: bank               # bank statements and Bit bank lines
+    aliases: [bank]
+  - id: 4
+    name: {en: Shared Cash, ru: Наличные}
+    type: cash
+    role: shared_cash        # where cash withdrawals land
+    aliases: [cash, нал]
+  - id: 5
+    name: {en: Transit (Bit), ru: Транзит (Bit)}
+    type: transit
+    role: transit            # Bit balance and internal transfers
+    aliases: [transit]
+
+merchant_rules:              # cleaned merchant name -> category id (public category tree)
+  - {pattern: CAFE DEMO, category: 19}
+  - {pattern: SUPER DEMO, category: 18, match_type: exact}
+  # Amount bands: above min, up to and including max, on the absolute amount; lower priority wins.
+  - {pattern: FUEL DEMO, category: 26, match_type: contains, min_abs_amount: 100, priority: 10}
+  - {pattern: FUEL DEMO, category: 17, match_type: contains, max_abs_amount: 100, priority: 10}
+
+merchant_names:              # normalization, tried in this order; pattern is a regex on the cleaned name
+  - {pattern: "^DEMO PAY", canonical_name: DEMO PAY}
+  - {pattern: "DEMO MART|DEMOMART", canonical_name: DEMO MART}
