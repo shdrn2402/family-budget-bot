@@ -23,10 +23,14 @@ def test_report_counts_each_step_and_never_prints_merchant_names(seeded_url: URL
             "INSERT INTO app.merchant_rules (pattern, category_id) VALUES "
             "('SHOP', 19), ('ALPHA', 17), ('YELLOWSTONE CAFE', 19), ('wolt tlv 1234', 19)"
         )
+        conn.execute(
+            "INSERT INTO app.merchant_rules (pattern, category_id, match_type, max_abs_amount, priority) "
+            "VALUES ('YELLOW', 17, 'contains', 100, 10)"
+        )
         conn.execute("INSERT INTO budget.users (id, name) VALUES (1, 'u')")
         rows = [
             ("SHOP ALPHA", -10, 19, "a"),          # partial, two categories, order decides
-            ("YELLOWSTONE CAFE", -30, 19, "b"),    # amount rule (snacks) beats the exact rule
+            ("YELLOWSTONE CAFE", -30, 19, "b"),    # a contains rule (snacks) beats the exact rule
             ("BIG MARKET", -10, None, "c"),        # no rule
             ("123456", -10, None, "d"),            # empty after cleaning
             ("WOLT TLV 5678", -10, 19, "e"),       # learned rule, reverse direction
@@ -50,14 +54,14 @@ def test_report_counts_each_step_and_never_prints_merchant_names(seeded_url: URL
     counts = {k.strip(): int(v) for k, v in (line.rsplit(":", 1) for line in text.splitlines() if line.startswith("  "))}
     assert counts["statement rows"] == 5
     assert counts["step: partial"] == 2
-    assert counts["step: amount_rule"] == 1
+    assert counts["step: contains"] == 1
     assert counts["step: none"] == 1
     assert counts["step: empty_name"] == 1
     assert counts["partial: several rules, different categories (#65)"] == 1
     assert counts["partial: category changes when the rule order is reversed (#65)"] == 1
     assert counts["partial: won by name-inside-pattern (#66)"] == 1
-    assert counts["amount rule overrides an exact rule for the same name (#67)"] == 1
-    assert counts["step: amount_rule / differs from stored"] == 1
+    assert counts["contains rule overrides an exact rule for the same name (#67)"] == 1
+    assert counts["step: contains / differs from stored"] == 1
     assert counts["rule pairs nested with different categories"] == 0
-    for name in (*NAMES, "SHOP", "ALPHA", "wolt"):
+    for name in (*NAMES, "SHOP", "ALPHA", "wolt", "YELLOW"):
         assert name.lower() not in text.lower()

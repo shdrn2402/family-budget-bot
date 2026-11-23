@@ -20,7 +20,7 @@ import psycopg
 sys.path.insert(0, str(Path.cwd()))  # /app in the container, the repo root locally
 
 from bot.config import Config  # noqa: E402
-from bot.services.categorizer import clean_business_name, explain_category  # noqa: E402
+from budget_core.categorize import MerchantName, MerchantRule, clean_name, explain_category  # noqa: E402
 from db.pool import CONNECTION_KWARGS  # noqa: E402
 
 STATEMENT_ROWS = """
@@ -31,16 +31,18 @@ STATEMENT_ROWS = """
 """
 
 
-STEPS = ("empty_name", "amount_rule", "exact", "exact_raw", "partial", "none")
+STEPS = ("empty_name", "contains", "exact", "exact_raw", "partial", "none")
 OUTCOMES = ("same as stored", "differs from stored", "stored uncategorized")
 
 
-def rule_stats(rules: dict[str, int]) -> Counter:
+def rule_stats(rule_list: list[MerchantRule]) -> Counter:
+    rules = {r.pattern: r.category_id for r in rule_list if r.match_type == "legacy"}
     stats: Counter = Counter(dict.fromkeys((
         "rules with digits", "rules of 1-3 characters", "rules all lower case (learned style)",
         "rule pairs nested with different categories",
     ), 0))
-    stats["rules"] = len(rules)
+    stats["rules"] = len(rule_list)
+    stats["legacy rules"] = len(rules)
     patterns = list(rules)
     for pattern in patterns:
         stats["rules with digits"] += any(ch.isdigit() for ch in pattern)
@@ -56,7 +58,7 @@ def rule_stats(rules: dict[str, int]) -> Counter:
     return stats
 
 
-def replay(rows: list[dict], rules: dict[str, int]) -> Counter:
+def replay(rows: list[dict], rules: list[MerchantRule], names: list[MerchantName]) -> Counter:
     # Every metric is printed, zeros included, so a missing line never has to be guessed at.
     stats: Counter = Counter(dict.fromkeys((
         "statement rows",
@@ -65,12 +67,13 @@ def replay(rows: list[dict], rules: dict[str, int]) -> Counter:
         "partial: several rules, different categories (#65)",
         "partial: category changes when the rule order is reversed (#65)",
         "partial: won by name-inside-pattern (#66)",
-        "amount rule overrides an exact rule for the same name (#67)",
+        "contains rule overrides an exact rule for the same name (#67)",
     ), 0))
-    reversed_rules = dict(reversed(list(rules.items())))
+    reversed_rules = list(reversed(rules))
+    exact = {r.pattern: r.category_id for r in reversed_rules if r.match_type in ("exact", "legacy")}
     for row in rows:
         stored = row["category_id"]
-        match = explain_category(row["description"] or "", float(row["amount"]), rules)
+        match = explain_category(row["description"] or "", float(row["amount"]), rules, names)
         stats["statement rows"] += 1
         stats[f"step: {match.step}"] += 1
         if stored is None:
@@ -84,32 +87,36 @@ def replay(rows: list[dict], rules: dict[str, int]) -> Counter:
         if match.step == "partial":
             if len(set(match.partial_categories)) > 1:
                 stats["partial: several rules, different categories (#65)"] += 1
-            if explain_category(row["description"] or "", float(row["amount"]), reversed_rules).category_id \
+            if explain_category(row["description"] or "", float(row["amount"]), reversed_rules, names).category_id \
                     != match.category_id:
                 stats["partial: category changes when the rule order is reversed (#65)"] += 1
             if match.reverse_match:
                 stats["partial: won by name-inside-pattern (#66)"] += 1
-        if match.step == "amount_rule":
-            clean = clean_business_name(row["description"] or "")
-            overridden = rules.get(clean)
+        if match.step == "contains":
+            overridden = exact.get(clean_name(row["description"] or "", names))
             if overridden is not None and overridden != match.category_id:
-                stats["amount rule overrides an exact rule for the same name (#67)"] += 1
+                stats["contains rule overrides an exact rule for the same name (#67)"] += 1
     return stats
 
 
 def report(conn: psycopg.Connection) -> str:
     """The audit as text, counts only."""
-    rules = {r["pattern"]: r["category_id"] for r in conn.execute(
-        "SELECT pattern, category_id FROM app.merchant_rules ORDER BY id"
-    ).fetchall()}
+    rules = [MerchantRule(r["pattern"], r["category_id"], r["match_type"], r["min_abs_amount"], r["max_abs_amount"])
+             for r in conn.execute(
+                 "SELECT pattern, category_id, match_type, min_abs_amount, max_abs_amount "
+                 "FROM app.merchant_rules ORDER BY priority, id"
+             ).fetchall()]
+    names = [MerchantName(r["pattern"], r["canonical_name"]) for r in conn.execute(
+        "SELECT pattern, canonical_name FROM app.merchant_names ORDER BY priority, id"
+    ).fetchall()]
     rows = conn.execute(STATEMENT_ROWS).fetchall()
 
     lines = [
         "Categorization audit (counts only)",
-        "Rules are replayed in id order. 'differs from stored' also counts categories changed by hand",
+        "Rules are replayed in priority, id order. 'differs from stored' also counts categories changed by hand",
         "and rules learned after the import, so it is an upper bound on wrong categories.",
     ]
-    for title, stats in (("Rules", rule_stats(rules)), ("Replay", replay(rows, rules))):
+    for title, stats in (("Rules", rule_stats(rules)), ("Replay", replay(rows, rules, names))):
         lines.append(f"\n{title}")
         lines.extend(f"  {key}: {stats[key]}" for key in sorted(stats))
     return "\n".join(lines)

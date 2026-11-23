@@ -1,21 +1,36 @@
-"""Merchant and typed-item names and their categories (`app.merchant_rules`)."""
+"""Merchant rules (`app.merchant_rules`) and name normalization (`app.merchant_names`)."""
 from psycopg import AsyncConnection
 
-# Until the categorizer reads match types, amount bands and priorities (#70, part 2), it only
-# sees rules with today's matching, so loading a household file early changes nothing.
-_LEGACY = "match_type = 'legacy' AND min_abs_amount IS NULL AND max_abs_amount IS NULL"
+from budget_core.categorize import MerchantName, MerchantRule
+
+_RULE_ORDER = "ORDER BY priority, id"
 
 
-async def get_all(conn: AsyncConnection) -> dict[str, int]:
-    """Every rule the categorizer understands today, as pattern -> category_id."""
-    cur = await conn.execute(f"SELECT pattern, category_id FROM app.merchant_rules WHERE {_LEGACY};")
-    return {row["pattern"]: row["category_id"] for row in await cur.fetchall()}
+async def get_rules(conn: AsyncConnection) -> list[MerchantRule]:
+    """Every rule, in the order the categorizer tries them (priority, then the older rule; #65)."""
+    cur = await conn.execute(
+        "SELECT pattern, category_id, match_type, min_abs_amount, max_abs_amount "
+        f"FROM app.merchant_rules {_RULE_ORDER};"
+    )
+    return [MerchantRule(r["pattern"], r["category_id"], r["match_type"], r["min_abs_amount"], r["max_abs_amount"])
+            for r in await cur.fetchall()]
+
+
+async def get_names(conn: AsyncConnection) -> list[MerchantName]:
+    """Name normalization from app.merchant_names, in the order it's tried."""
+    cur = await conn.execute(f"SELECT pattern, canonical_name FROM app.merchant_names {_RULE_ORDER};")
+    return [MerchantName(r["pattern"], r["canonical_name"]) for r in await cur.fetchall()]
 
 
 async def find_category(conn: AsyncConnection, name: str) -> int | None:
-    """The category of a rule whose pattern equals `name` (case-sensitive, see #42), or None."""
+    """The category of a rule whose pattern equals `name` (case-sensitive, see #42), or None.
+
+    Typed entries have no amount to compare, so rules with an amount band don't apply.
+    """
     cur = await conn.execute(
-        f"SELECT category_id FROM app.merchant_rules WHERE pattern = %s AND {_LEGACY};", (name,)
+        "SELECT category_id FROM app.merchant_rules WHERE pattern = %s AND match_type IN ('exact', 'legacy') "
+        f"AND min_abs_amount IS NULL AND max_abs_amount IS NULL {_RULE_ORDER} LIMIT 1;",
+        (name,),
     )
     row = await cur.fetchone()
     return row["category_id"] if row else None

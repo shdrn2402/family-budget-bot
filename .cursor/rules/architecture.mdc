@@ -40,7 +40,7 @@ This folder contains Telegram interaction logic. **Handlers must remain "thin"**
 ### 2.3 `bot/services/`
 This folder contains the core **business logic** and integrations.
 *   `llm.py`: Interaction with Gemini/LLM for natural language processing.
-*   `categorizer.py`: Logic for mapping expenses to budget categories.
+*   `budget_core/categorize.py` (pure, outside `bot/`): cleans merchant names and applies the household's merchant rules and names, which are data in `app.merchant_rules` / `app.merchant_names`.
 *   `expense.py`: Complex expense processing pipelines.
 *   `importer.py`: Logic for parsing CSV/PDF bank statements.
 *   `voice.py`: Speech-to-text processing logic.

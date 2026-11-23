@@ -1,6 +1,8 @@
 """Accounts (`accounts`) and the words that name them in typed entries (`account_aliases`)."""
 from psycopg import AsyncConnection
 
+from budget_core.household import AccountRoles
+
 
 async def get_type(conn: AsyncConnection, account_id: int) -> str | None:
     """'card', 'cash', 'transit'…, or None for an unknown account."""
@@ -58,3 +60,13 @@ async def find_by_alias(conn: AsyncConnection, alias: str) -> int | None:
     cur = await conn.execute("SELECT account_id FROM account_aliases WHERE name = %s;", (alias,))
     row = await cur.fetchone()
     return row["account_id"] if row else None
+
+
+async def load_roles(conn: AsyncConnection) -> AccountRoles:
+    """The accounts with a role or card digits, from the household file (#72)."""
+    cur = await conn.execute("SELECT id, role, card_last4 FROM accounts WHERE role IS NOT NULL OR card_last4 IS NOT NULL;")
+    rows = await cur.fetchall()
+    return AccountRoles(
+        by_role={r["role"]: r["id"] for r in rows if r["role"]},
+        by_card_last4={r["card_last4"]: r["id"] for r in rows if r["card_last4"]},
+    )
