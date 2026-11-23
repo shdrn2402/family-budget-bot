@@ -18,6 +18,7 @@ from typing import Any
 
 import pytest
 
+from budget_core.household import AccountRoles
 from bot.services.importer import parse_bit_csv, parse_isracard, parse_leumi
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "statements"
@@ -27,12 +28,14 @@ UPDATE = os.environ.get("UPDATE_GOLDENS") == "1"
 # file name prefix is tested separately (tests/test_importer.py).
 CARD_ACCOUNT_ID = 2
 BIT_CARD_ACCOUNT_ID = 7
+# The bank and transit accounts come from the household data; the goldens use ids 3 and 5.
+ROLES = AccountRoles(by_role={"bank": 3, "transit": 5})
 
 CASES: dict[str, Callable[[Path], list[dict[str, Any]]]] = {
     "isracard/1111_06_2026.xlsx": lambda p: parse_isracard(str(p), account_id=CARD_ACCOUNT_ID),
     "isracard/1111_07_2026_with_pending.xlsx": lambda p: parse_isracard(str(p), account_id=CARD_ACCOUNT_ID),
-    "leumi/FibiSave0000_06.xls": lambda p: parse_leumi(str(p)),
-    "bit/bit_transactions_2026.csv": lambda p: parse_bit_csv(str(p), account_id=BIT_CARD_ACCOUNT_ID),
+    "leumi/FibiSave0000_06.xls": lambda p: parse_leumi(str(p), ROLES),
+    "bit/bit_transactions_2026.csv": lambda p: parse_bit_csv(str(p), account_id=BIT_CARD_ACCOUNT_ID, roles=ROLES),
 }
 
 
@@ -75,7 +78,7 @@ def test_current_behaviour_identical_bit_transfers_share_an_external_id() -> Non
 
     Known data loss, pinned on purpose; reconciliation moves to dbt in Stage 4.
     """
-    rows = parse_bit_csv(str(FIXTURES / "bit/bit_transactions_2026.csv"), account_id=BIT_CARD_ACCOUNT_ID)
+    rows = parse_bit_csv(str(FIXTURES / "bit/bit_transactions_2026.csv"), account_id=BIT_CARD_ACCOUNT_ID, roles=ROLES)
     same_day = [r for r in rows if r["date"] == datetime(2026, 6, 16)]
     assert len(same_day) == 2
     assert same_day[0]["external_id"] == same_day[1]["external_id"]

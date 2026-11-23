@@ -112,3 +112,27 @@ class Household(_Entry):
         if problems:
             raise ValueError("; ".join(problems))
         return self
+
+
+class HouseholdNotLoaded(Exception):
+    """A value the bot needs comes from the household file, and the database doesn't have it."""
+
+
+class AccountRoles(_Entry):
+    """Which account plays which part (accounts.role, accounts.card_last4), read from the database."""
+
+    by_role: dict[AccountRole, int] = {}
+    by_card_last4: dict[str, int] = {}
+
+    def require(self, role: AccountRole) -> int:
+        if role not in self.by_role:
+            raise HouseholdNotLoaded(
+                f"No account has the role '{role}'. Load the household file (scripts/load_household.py)."
+            )
+        return self.by_role[role]
+
+    def isracard_account(self, card_last4: str | None) -> int:
+        """The card account for an Isracard file: by the card digits, else the default card."""
+        if card_last4 and card_last4 in self.by_card_last4:
+            return self.by_card_last4[card_last4]
+        return self.require("default_card")

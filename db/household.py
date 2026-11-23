@@ -117,3 +117,47 @@ async def _check_categories(conn: AsyncConnection, household: Household) -> None
     missing = wanted - {row["id"] for row in await cur.fetchall()}
     if missing:
         raise ValueError(f"merchant rules use unknown category ids: {sorted(missing)}")
+
+
+async def export(conn: AsyncConnection) -> dict:
+    """The household as stored, in the household-file format (loads back with apply)."""
+    users = [
+        {"id": r["id"], "name": r["name"], **({"is_admin": True} if r["is_admin"] else {})}
+        for r in await (await conn.execute("SELECT id, name, is_admin FROM users ORDER BY id")).fetchall()
+        if r["name"]
+    ]
+    aliases: dict[int, list[str]] = {}
+    for r in await (await conn.execute("SELECT name, account_id FROM account_aliases ORDER BY id")).fetchall():
+        aliases.setdefault(r["account_id"], []).append(r["name"])
+    accounts = []
+    rows = await (await conn.execute(
+        "SELECT id, name, type, owner_id, card_last4, role FROM accounts ORDER BY id"
+    )).fetchall()
+    for r in rows:
+        account = {"id": r["id"], "name": r["name"], "type": r["type"]}
+        for key, value in (("owner", r["owner_id"]), ("card_last4", r["card_last4"]), ("role", r["role"]),
+                           ("aliases", aliases.get(r["id"]))):
+            if value:
+                account[key] = value
+        accounts.append(account)
+
+    rules = []
+    rows = await (await conn.execute(
+        "SELECT pattern, category_id, match_type, min_abs_amount, max_abs_amount, priority "
+        "FROM app.merchant_rules ORDER BY priority, id"
+    )).fetchall()
+    for r in rows:
+        rule = {"pattern": r["pattern"], "category": r["category_id"]}
+        if r["match_type"] != "legacy":
+            rule["match_type"] = r["match_type"]
+        for key in ("min_abs_amount", "max_abs_amount"):
+            if r[key] is not None:
+                rule[key] = float(r[key])
+        if r["priority"] != 100:
+            rule["priority"] = r["priority"]
+        rules.append(rule)
+
+    names = [{"pattern": r["pattern"], "canonical_name": r["canonical_name"]} for r in await (await conn.execute(
+        "SELECT pattern, canonical_name FROM app.merchant_names ORDER BY priority, id"
+    )).fetchall()]
+    return {"users": users, "accounts": accounts, "merchant_rules": rules, "merchant_names": names}

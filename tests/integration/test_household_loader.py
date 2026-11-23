@@ -33,7 +33,7 @@ async def test_loading_writes_accounts_aliases_rules_and_names(db: psycopg.Async
     counts = await household.apply(db, _example())
     await db.commit()
 
-    assert counts["accounts updated"] == 5  # the seed's accounts 1-5, now described by the file
+    assert counts["accounts added"] == 5  # the public seed has no accounts
     assert await _accounts(db) == [
         (1, "card", 1001, "1111", "default_card"),
         (2, "card", 1002, "2222", None),
@@ -58,12 +58,12 @@ async def test_loading_writes_accounts_aliases_rules_and_names(db: psycopg.Async
 
 async def test_loading_twice_changes_nothing_the_second_time(db: psycopg.AsyncConnection) -> None:
     await household.apply(db, _example())
-    rules_before = await merchant_rules.get_all(db)
+    rules_before = await merchant_rules.get_rules(db)
     counts = await household.apply(db, _example())
 
     assert counts["merchant rules unchanged"] == 4 and counts["merchant rules added"] == 0
     assert counts["merchant names unchanged"] == 2 and counts["merchant names added"] == 0
-    assert await merchant_rules.get_all(db) == rules_before
+    assert await merchant_rules.get_rules(db) == rules_before
 
 
 async def test_learned_rules_stay_and_merchant_names_follow_the_file(db: psycopg.AsyncConnection) -> None:
@@ -75,7 +75,7 @@ async def test_learned_rules_stay_and_merchant_names_follow_the_file(db: psycopg
     counts = await household.apply(db, Household.model_validate(data))
 
     assert counts["merchant names removed"] == 1
-    assert "learned shop" in await merchant_rules.get_all(db)
+    assert "learned shop" in [r.pattern for r in await merchant_rules.get_rules(db)]
 
 
 async def test_roles_and_card_digits_can_move_between_accounts(db: psycopg.AsyncConnection) -> None:
@@ -88,13 +88,38 @@ async def test_roles_and_card_digits_can_move_between_accounts(db: psycopg.Async
     assert (await _accounts(db))[:2] == [(1, "card", 1001, "2222", None), (2, "card", 1002, "1111", "default_card")]
 
 
-async def test_the_bot_does_not_see_rules_it_cannot_apply_yet(db: psycopg.AsyncConnection) -> None:
-    """Until part 2, contains/exact and amount-banded rules are invisible to the categorizer."""
+async def test_rules_come_in_priority_then_id_order_and_learning_keeps_it(db: psycopg.AsyncConnection) -> None:
+    """#65 fixed: the order no longer depends on how Postgres returns rows; re-learning a rule
+    (an upsert, which rewrites the row) doesn't move it."""
     await household.apply(db, _example())
-    rules = await merchant_rules.get_all(db)
-    assert "CAFE DEMO" in rules  # legacy
-    assert "FUEL DEMO" not in rules and "SUPER DEMO" not in rules
-    assert await merchant_rules.find_category(db, "SUPER DEMO") is None
+    patterns = [r.pattern for r in await merchant_rules.get_rules(db)]
+    assert patterns == ["FUEL DEMO", "FUEL DEMO", "CAFE DEMO", "SUPER DEMO"]  # priority 10 first
+
+    await merchant_rules.learn(db, "learned a", 18, 1001)
+    await merchant_rules.learn(db, "learned b", 18, 1001)
+    await merchant_rules.learn(db, "learned a", 19, 1001)  # re-learned: its row is rewritten
+    assert [r.pattern for r in await merchant_rules.get_rules(db)] == patterns + ["learned a", "learned b"]
+
+
+async def test_typed_entries_use_exact_and_legacy_rules_without_an_amount_band(db: psycopg.AsyncConnection) -> None:
+    await household.apply(db, _example())
+    assert await merchant_rules.find_category(db, "SUPER DEMO") == 18  # exact
+    assert await merchant_rules.find_category(db, "CAFE DEMO") == 19   # legacy
+    assert await merchant_rules.find_category(db, "FUEL DEMO") is None  # amount bands need an amount
+
+
+async def test_the_household_exports_in_the_file_format_and_loads_back(db: psycopg.AsyncConnection) -> None:
+    """/backup sends this export; loading it again changes nothing."""
+    await household.apply(db, _example())
+    await merchant_rules.learn(db, "learned shop", 19, 1001)
+    exported = Household.model_validate(await household.export(db))
+
+    counts = await household.apply(db, exported)
+    assert counts["accounts added"] == 0
+    assert counts["merchant rules added"] == 0 and counts["merchant rules updated"] == 0
+    assert counts["merchant names added"] == 0 and counts["merchant names removed"] == 0
+    assert {r.pattern for r in exported.merchant_rules} >= {"FUEL DEMO", "learned shop"}
+    assert exported.accounts[3].aliases == ("cash", "нал") and exported.accounts[0].card_last4 == "1111"
 
 
 async def test_unknown_categories_are_refused(db: psycopg.AsyncConnection) -> None:
@@ -134,6 +159,7 @@ def test_the_cli_reports_invalid_files_without_their_values() -> None:
 
 async def test_existing_accounts_can_be_described_by_id_only(db: psycopg.AsyncConnection) -> None:
     """Production accounts already exist: a file with just id, card digits and role keeps their names."""
+    await household.apply(db, _example())
     cur = await db.execute("SELECT name FROM accounts WHERE id = 3")
     name_before = (await cur.fetchone())["name"]
     await household.apply(db, Household.model_validate({"accounts": [{"id": 3, "role": "bank"}]}))

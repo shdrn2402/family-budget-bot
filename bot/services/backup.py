@@ -3,7 +3,7 @@ import yaml
 import logging
 from datetime import datetime
 from bot.config import Config
-from db import merchant_rules, pool
+from db import household, pool
 
 logger = logging.getLogger(__name__)
 
@@ -56,38 +56,26 @@ async def create_database_dump() -> str | None:
         logger.error(f"Error creating database dump: {e}")
         return None
 
-async def export_aliases_to_yaml() -> str | None:
+async def export_household_to_yaml() -> str | None:
     """
-    Exports the current merchant rules (app.merchant_rules) to a YAML file compatible with seed_data.sql.
-    Returns the file path to the yaml or None if it failed.
+    Exports the household (users, accounts, aliases, merchant rules and names) in the
+    household-file format, so it can be loaded back with scripts/load_household.py.
+    Returns the file path, or None if it failed. The file is private household data.
     """
     try:
         async with pool.connection() as conn:
-            aliases_dict = await merchant_rules.get_all(conn)
-        if not aliases_dict:
-            logger.warning("No aliases found in database.")
-            aliases_dict = {}
-            
-        # The dictionary is currently {name: category_id}. 
-        # We need to reverse the mapping to {category_id: [name1, name2, ...]}
-        reversed_mapping = {}
-        for name, cat_id in aliases_dict.items():
-            if cat_id not in reversed_mapping:
-                reversed_mapping[cat_id] = []
-            reversed_mapping[cat_id].append(name)
-            
-        # Format for YAML output
-        yaml_data = {"aliases": reversed_mapping}
-        
+            data = await household.export(conn)
+
         backup_dir = "/app/backups"
         os.makedirs(backup_dir, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filepath = os.path.join(backup_dir, f"aliases_backup_{timestamp}.yaml")
-        
+        filepath = os.path.join(backup_dir, f"household_backup_{timestamp}.yaml")
+
         with open(filepath, 'w', encoding='utf-8') as f:
-            yaml.dump(yaml_data, f, allow_unicode=True, default_flow_style=False, sort_keys=True)
-            
+            f.write("# PRIVATE household backup. Load with scripts/load_household.py (dry run first).\n")
+            yaml.safe_dump(data, f, allow_unicode=True, default_flow_style=None, sort_keys=False, width=120)
+
         return filepath
     except Exception as e:
-        logger.error(f"Error exporting aliases to yaml: {e}")
+        logger.error(f"Error exporting the household to yaml: {e}")
         return None
