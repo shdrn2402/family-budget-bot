@@ -86,9 +86,8 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen
 
-      # bot/ is linted once Stage 1 restructures it.
       - name: Lint
-        run: uv run ruff check budget_core db tests
+        run: uv run ruff check .
 
       - name: Run Pytest
         env:
