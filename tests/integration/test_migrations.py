@@ -186,3 +186,60 @@ def test_item_aliases_move_to_app_merchant_rules_and_back(create_database: Calla
         assert downgraded.execute("SELECT id, name, category_id FROM budget.item_aliases ORDER BY id").fetchall() == [
             (7, "testcoffee", 19), (9, "TESTMERCHANT", 26)
         ]
+
+
+def test_household_columns_and_rule_fields_are_added_and_reversed(create_database: Callable[[], URL]) -> None:
+    """0005 (#70): account card_last4/role, rule match type/amount limits/priority, merchant_names."""
+    import psycopg
+
+    from bot.db_migrate import downgrade_to
+
+    before_url = create_database()
+    upgrade_to("0004", before_url)
+
+    url = create_database()
+    upgrade_to("0004", url)
+    with connect(url) as conn:
+        conn.execute("INSERT INTO budget.categories (id, name) VALUES (26, '{\"en\": \"fuel\"}'), (17, '{\"en\": \"s\"}')")
+        conn.execute("INSERT INTO app.merchant_rules (pattern, category_id) VALUES ('CAFE', 26)")
+        conn.commit()
+
+    upgrade_to("0005", url)
+    with connect(url) as conn:
+        # Existing rules keep today's matching.
+        assert conn.execute(
+            "SELECT match_type, min_abs_amount, max_abs_amount, priority FROM app.merchant_rules"
+        ).fetchall() == [("legacy", None, None, 100)]
+        # One pattern may have several amount bands, but each band only once (NULLs count as equal).
+        conn.execute(
+            "INSERT INTO app.merchant_rules (pattern, category_id, match_type, min_abs_amount, priority) "
+            "VALUES ('YELLOW', 26, 'contains', 100, 10)"
+        )
+        conn.execute(
+            "INSERT INTO app.merchant_rules (pattern, category_id, match_type, max_abs_amount, priority) "
+            "VALUES ('YELLOW', 17, 'contains', 100, 10)"
+        )
+        with pytest.raises(psycopg.errors.UniqueViolation):
+            conn.execute("INSERT INTO app.merchant_rules (pattern, category_id) VALUES ('CAFE', 17)")
+        conn.rollback()
+
+        for bad in ("UPDATE budget.accounts SET card_last4 = '12a4'",
+                    "INSERT INTO app.merchant_rules (pattern, category_id, match_type) VALUES ('X', 26, 'regex')"):
+            with pytest.raises(psycopg.errors.CheckViolation):
+                conn.execute("INSERT INTO budget.accounts (name, type) VALUES ('{}', 'card')")
+                conn.execute(bad)
+            conn.rollback()
+
+        conn.execute("INSERT INTO budget.accounts (name, type, role) VALUES ('{}', 'transit', 'transit')")
+        with pytest.raises(psycopg.errors.UniqueViolation):
+            conn.execute("INSERT INTO budget.accounts (name, type, role) VALUES ('{}', 'transit', 'transit')")
+        conn.rollback()
+
+        conn.execute("INSERT INTO app.merchant_names (pattern, canonical_name) VALUES ('^GOOGLE', 'GOOGLE')")
+        conn.rollback()
+
+    downgrade_to("0004", url)
+    with connect(url) as downgraded, connect(before_url) as before:
+        for schema in ("budget", "app"):
+            assert schema_snapshot(downgraded, schema) == schema_snapshot(before, schema), schema
+        assert downgraded.execute("SELECT pattern FROM app.merchant_rules").fetchall() == [("CAFE",)]

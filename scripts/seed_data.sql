@@ -488,6 +488,6 @@ INSERT INTO app.merchant_rules (pattern, category_id) VALUES
 ('תיקון תן ביס', 12),
 ('תן ביס', 19),
 ('תפוז סגולה', 17)
-ON CONFLICT (pattern) DO UPDATE SET
+ON CONFLICT (pattern, min_abs_amount, max_abs_amount) DO UPDATE SET
     category_id = EXCLUDED.category_id;
 
