@@ -1,13 +1,13 @@
 """
 Pins the current behaviour of history reads and category learning against a real database:
-db.transactions.list_recent and count, db.aliases.learn.
+db.transactions.list_recent and count, db.merchant_rules.learn.
 Part of issue #11.
 """
 from datetime import datetime, timedelta
 
 import psycopg
 
-from db import aliases, transactions
+from db import merchant_rules, transactions
 from tests.integration.conftest import CATEGORY_INTERNAL_TRANSFER, CATEGORY_RESTAURANTS, CATEGORY_SALARY, Household
 
 START = datetime(2026, 10, 1, 12, 0)
@@ -31,16 +31,16 @@ async def _categories(db: psycopg.AsyncConnection) -> dict[int, int | None]:
 
 
 async def _last_alias_id(db: psycopg.AsyncConnection) -> int:
-    row = await (await db.execute("SELECT coalesce(max(id), 0) AS id FROM item_aliases")).fetchone()
+    row = await (await db.execute("SELECT coalesce(max(id), 0) AS id FROM app.merchant_rules")).fetchone()
     return row["id"]
 
 
 async def _aliases_since(db: psycopg.AsyncConnection, last_id: int) -> dict[str, int]:
     """Aliases created after `last_id` (the seed and fixture aliases are ignored)."""
     rows = await (await db.execute(
-        "SELECT name, category_id FROM item_aliases WHERE id > %s", (last_id,)
+        "SELECT pattern, category_id FROM app.merchant_rules WHERE id > %s", (last_id,)
     )).fetchall()
-    return {r["name"]: r["category_id"] for r in rows}
+    return {r["pattern"]: r["category_id"] for r in rows}
 
 
 # --- History ---------------------------------------------------------------------------
@@ -74,7 +74,7 @@ async def test_learning_saves_the_alias_and_categorizes_matching_rows_of_that_us
     await db.commit()
     last_alias = await _last_alias_id(db)
 
-    updated = await aliases.learn(db, "Coffee", CATEGORY_RESTAURANTS, household.user_id)
+    updated = await merchant_rules.learn(db, "Coffee", CATEGORY_RESTAURANTS, household.user_id)
 
     assert updated == 1
     assert await _categories(db) == {
@@ -95,7 +95,7 @@ async def test_learning_uses_the_description_plus_comment_key(
     await db.commit()
     last_alias = await _last_alias_id(db)
 
-    await aliases.learn(db, "Transfer Alice", CATEGORY_INTERNAL_TRANSFER, household.user_id)
+    await merchant_rules.learn(db, "Transfer Alice", CATEGORY_INTERNAL_TRANSFER, household.user_id)
 
     assert await _categories(db) == {to_alice: CATEGORY_INTERNAL_TRANSFER, to_bob: None}
     assert await _aliases_since(db, last_alias) == {"transfer alice": CATEGORY_INTERNAL_TRANSFER}
@@ -105,8 +105,8 @@ async def test_relearning_an_alias_moves_it_to_the_new_category(
     db: psycopg.AsyncConnection, household: Household
 ) -> None:
     last_alias = await _last_alias_id(db)
-    await aliases.learn(db, "Coffee", CATEGORY_RESTAURANTS, household.user_id)
-    await aliases.learn(db, "Coffee", CATEGORY_SALARY, household.user_id)
+    await merchant_rules.learn(db, "Coffee", CATEGORY_RESTAURANTS, household.user_id)
+    await merchant_rules.learn(db, "Coffee", CATEGORY_SALARY, household.user_id)
 
     assert await _aliases_since(db, last_alias) == {"coffee": CATEGORY_SALARY}
 
@@ -122,6 +122,6 @@ async def test_current_behaviour_learning_matches_substrings(
     containing = await _insert(db, household, user_id=household.user_id, description="Coffee Machine Repair")
     await db.commit()
 
-    assert await aliases.learn(db, "Coffee", CATEGORY_RESTAURANTS, household.user_id) == 2
+    assert await merchant_rules.learn(db, "Coffee", CATEGORY_RESTAURANTS, household.user_id) == 2
 
     assert await _categories(db) == {exact: CATEGORY_RESTAURANTS, containing: CATEGORY_RESTAURANTS}

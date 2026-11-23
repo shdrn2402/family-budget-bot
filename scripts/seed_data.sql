@@ -103,8 +103,8 @@ INSERT INTO budget.account_aliases (name, account_id) VALUES
 ON CONFLICT (name) DO UPDATE SET
     account_id = EXCLUDED.account_id;
 
--- Seed item aliases
-INSERT INTO budget.item_aliases (name, category_id) VALUES
+-- Seed merchant rules (merchant or typed item name -> category)
+INSERT INTO app.merchant_rules (pattern, category_id) VALUES
 ('AIRALO', 36),
 ('ALIEXPRESS', 38),
 ('AMPM קרית אונו', 18),
@@ -488,8 +488,6 @@ INSERT INTO budget.item_aliases (name, category_id) VALUES
 ('תיקון תן ביס', 12),
 ('תן ביס', 19),
 ('תפוז סגולה', 17)
-ON CONFLICT (name) DO UPDATE SET
+ON CONFLICT (pattern) DO UPDATE SET
     category_id = EXCLUDED.category_id;
 
--- Reset sequence for item_aliases
-SELECT setval('budget.item_aliases_id_seq', (SELECT COALESCE(max(id), 1) FROM budget.item_aliases));

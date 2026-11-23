@@ -18,7 +18,7 @@ import psycopg
 import pytest
 import yaml
 
-from db import aliases, transactions
+from db import merchant_rules, transactions
 from bot.services.expense import save_expense_item
 from bot.services.statement_batch import prepare_statement_batch
 from tests.scenario_loader import Household, Scenario, load_household, load_scenario, normalize_row, scenario_paths
@@ -40,9 +40,9 @@ async def _apply_household(db: psycopg.AsyncConnection, household: Household) ->
         )
     await db.execute("SELECT setval('accounts_id_seq', (SELECT max(id) FROM accounts))")
     await db.execute("DELETE FROM account_aliases")
-    await db.execute("DELETE FROM item_aliases")
+    await db.execute("DELETE FROM app.merchant_rules")
     for alias, category in household.merchant_rules.items():
-        await db.execute("INSERT INTO item_aliases (name, category_id) VALUES (%s, %s)",
+        await db.execute("INSERT INTO app.merchant_rules (pattern, category_id) VALUES (%s, %s)",
                          (alias, household.categories[category]))
     await db.commit()
 
@@ -84,7 +84,7 @@ async def _run_step(db: psycopg.AsyncConnection, household: Household, kind: str
 
     elif kind == "statement_import":
         lines = [_statement_line(household, line) for line in step["lines"]]
-        batch = prepare_statement_batch(lines, await aliases.get_all(db))
+        batch = prepare_statement_batch(lines, await merchant_rules.get_all(db))
         saved = await transactions.save_statement_rows(db, user_id, batch)
         if "expect_saved" in step:
             assert saved == step["expect_saved"], f"saved {saved} rows"

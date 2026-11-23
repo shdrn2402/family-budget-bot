@@ -9,7 +9,7 @@ import psycopg
 import pytest
 from sqlalchemy.engine import URL
 
-from db import aliases
+from db import merchant_rules
 from bot.db_migrate import BASELINE_REVISION, downgrade_to, upgrade_to
 from tests.integration.conftest import connect
 from tests.integration.schema_snapshot import schema_snapshot
@@ -63,12 +63,31 @@ async def _inline_menu_category_change(url: URL, transaction_id: int) -> None:
         host=url.host, port=url.port, user=url.username, password=url.password,
         dbname=url.database, options=BOT_SEARCH_PATH,
     ) as conn:
-        await aliases.learn(conn, f"{DESCRIPTION} {COMMENT}".strip(), CATEGORY_ID, USER_ID)
+        alias_name = f"{DESCRIPTION} {COMMENT}".strip()
+        if _has_merchant_rules(url):
+            await merchant_rules.learn(conn, alias_name, CATEGORY_ID, USER_ID)
+        else:  # before 0004: the alias upsert the code did then
+            await conn.execute(
+                "INSERT INTO item_aliases (name, category_id) VALUES (%s, %s) "
+                "ON CONFLICT (name) DO UPDATE SET category_id = EXCLUDED.category_id",
+                (alias_name.lower(), CATEGORY_ID),
+            )
+            await conn.commit()
+
+
+def _has_merchant_rules(url: URL) -> bool:
+    """app.merchant_rules replaced budget.item_aliases in revision 0004 (#62)."""
+    with connect(url) as conn:
+        return conn.execute("SELECT to_regclass('app.merchant_rules')").fetchone() != (None,)
 
 
 def _aliases(url: URL) -> list[str]:
+    query = (
+        "SELECT pattern FROM app.merchant_rules ORDER BY pattern" if _has_merchant_rules(url)
+        else "SELECT name FROM budget.item_aliases ORDER BY name"
+    )
     with connect(url) as conn:
-        return [row[0] for row in conn.execute("SELECT name FROM budget.item_aliases ORDER BY name")]
+        return [row[0] for row in conn.execute(query)]
 
 
 def test_head_has_no_alias_trigger_or_function(create_database: Callable[[], URL]) -> None:
